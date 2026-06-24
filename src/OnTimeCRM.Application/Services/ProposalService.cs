@@ -64,6 +64,9 @@ public class ProposalService : IProposalService
             throw new ApiException(ApiErrorCatalog.CLIENT_WRONG_USER);
 
         var vehicleList = req.Vehicles?.ToList();
+        if (vehicleList is null || vehicleList.Count == 0)
+            throw new ApiException(ApiErrorCatalog.PROPOSAL_MISSING_VEHICLE);
+
         var proposal = BuildProposal(userId, clientId, req);
         _proposalRepo.Add(proposal);
         AddVehicles(proposal, vehicleList);

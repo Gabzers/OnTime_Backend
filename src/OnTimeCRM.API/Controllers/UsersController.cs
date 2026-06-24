@@ -67,8 +67,7 @@ public class UsersController : ControllerBase
     [Authorize(Policy = "ManagerOnly")]
     public async Task<IActionResult> GetByBrand(CancellationToken ct)
     {
-        var brandId = User.TryGetBrandId() ?? Guid.Empty;
-        var result  = await _users.GetByBrandAsync(brandId, ct);
+        var result  = await _users.GetByBrandAsync(User.RequireBrandId(), ct);
         return Ok(result);
     }
 
@@ -77,8 +76,7 @@ public class UsersController : ControllerBase
     [Authorize(Policy = "ManagerOnly")]
     public async Task<IActionResult> GetById(Guid id, CancellationToken ct)
     {
-        var brandId = User.TryGetBrandId() ?? Guid.Empty;
-        var result  = await _users.GetByIdAsync(id, brandId, ct);
+        var result  = await _users.GetByIdAsync(id, User.RequireBrandId(), ct);
         return Ok(result);
     }
 
@@ -90,7 +88,7 @@ public class UsersController : ControllerBase
         CancellationToken ct)
     {
         // Ensure the manager can only create users in their own brand
-        request = request with { BrandId = User.TryGetBrandId(), CompanyId = User.TryGetCompanyId() };
+        request = request with { BrandId = User.RequireBrandId(), CompanyId = User.RequireCompanyId() };
         var result = await _auth.RegisterSalespersonAsync(request, ct);
         return Ok(result);
     }
@@ -103,8 +101,7 @@ public class UsersController : ControllerBase
         [FromBody] SetUserActiveRequest request,
         CancellationToken ct)
     {
-        var brandId = User.TryGetBrandId() ?? Guid.Empty;
-        var result  = await _users.SetActiveAsync(id, brandId, request, ct);
+        var result  = await _users.SetActiveAsync(id, User.RequireBrandId(), request, ct);
         return Ok(result);
     }
 
@@ -113,8 +110,7 @@ public class UsersController : ControllerBase
     [Authorize(Policy = "ManagerOnly")]
     public async Task<IActionResult> GetUserDashboard(Guid id, CancellationToken ct)
     {
-        var brandId = User.TryGetBrandId() ?? Guid.Empty;
-        await _users.GetByIdAsync(id, brandId, ct); // throws AUTH_FORBIDDEN if mismatch
+        await _users.GetByIdAsync(id, User.RequireBrandId(), ct);
         var result = await _sales.GetDashboardAsync(id, ct);
         return Ok(result);
     }

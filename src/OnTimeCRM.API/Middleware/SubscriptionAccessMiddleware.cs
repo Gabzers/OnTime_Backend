@@ -65,21 +65,22 @@ public class SubscriptionAccessMiddleware
         }
 
         UserAccountStatus status;
+        DateTimeOffset?   trialEndsAt;
         using (var scope = _scopeFactory.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<IAppDbContext>();
             var dbUser = await db.Users.AsNoTracking()
-                .Select(u => new { u.Id, u.AccountStatus })
+                .Select(u => new { u.Id, u.AccountStatus, u.TrialEndsAt })
                 .FirstOrDefaultAsync(u => u.Id == userId, context.RequestAborted);
 
             if (dbUser is null)
             {
-                // JWT references a user that no longer exists in the DB (e.g. after DB wipe).
                 await WriteBlockAsync(context, 401, "AUTH_UNAUTHORIZED", "User session is no longer valid. Please log in again.");
                 return;
             }
 
-            status = dbUser.AccountStatus;
+            status      = dbUser.AccountStatus;
+            trialEndsAt = dbUser.TrialEndsAt;
         }
 
         var method = context.Request.Method;
@@ -101,6 +102,15 @@ public class SubscriptionAccessMiddleware
                 return;
 
             case UserAccountStatus.PendingActivation:
+                // Allow full access during an active trial period
+                if (trialEndsAt.HasValue && trialEndsAt.Value > DateTimeOffset.UtcNow)
+                {
+                    await _next(context);
+                    return;
+                }
+                await WriteBlockAsync(context, 402, "SUBSCRIPTION_REQUIRED", "Active subscription required.");
+                return;
+
             case UserAccountStatus.Suspended:
                 await WriteBlockAsync(context, 402, "SUBSCRIPTION_REQUIRED", "Active subscription required.");
                 return;

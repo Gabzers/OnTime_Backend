@@ -149,29 +149,26 @@ static async Task InitializeDatabaseAsync(WebApplication app)
 
 static async Task SeedVehicleBrandsAsync(AppDbContext db)
 {
-    if (await db.VehicleBrands.AnyAsync()) return;
-
-    // ── Dongfeng ──────────────────────────────────────────────────────────
-    var dongfeng = new VehicleBrand { Name = "Dongfeng" };
-    db.VehicleBrands.Add(dongfeng);
-    var dongfengModels = new[]
+    // Per-brand idempotent: a brand is seeded only if it doesn't exist yet, so brands
+    // added here also appear on an already-seeded local DB (no full reset needed).
+    var catalogue = new Dictionary<string, string[]>
     {
-        "AX7", "AX4", "AX3", "T5 EVO", "ix5", "580 Pro",
-        "AEOLUS E70", "Forthing 580 Pro", "Forthing T5 EVO",
-        "Mengshi 917", "Mengshi 919"
+        ["Dongfeng"] = ["AX7", "AX4", "AX3", "T5 EVO", "ix5", "580 Pro",
+                        "AEOLUS E70", "Forthing 580 Pro", "Forthing T5 EVO",
+                        "Mengshi 917", "Mengshi 919"],
+        ["Voyah"]    = ["Free", "Dream", "Passion", "Range-E"],
+        ["XPENG"]    = ["P7", "P7+", "P5", "MONA M03", "G3i", "G6", "G7", "G9", "X9"],
     };
-    foreach (var m in dongfengModels)
-        db.VehicleModels.Add(new VehicleModel { Brand = dongfeng, Name = m });
 
-    // ── Voyah ─────────────────────────────────────────────────────────────
-    var voyah = new VehicleBrand { Name = "Voyah" };
-    db.VehicleBrands.Add(voyah);
-    var voyahModels = new[]
+    foreach (var (brandName, models) in catalogue)
     {
-        "Free", "Dream", "Passion", "Range-E"
-    };
-    foreach (var m in voyahModels)
-        db.VehicleModels.Add(new VehicleModel { Brand = voyah, Name = m });
+        if (await db.VehicleBrands.AnyAsync(b => b.Name == brandName)) continue;
+
+        var brand = new VehicleBrand { Name = brandName };
+        db.VehicleBrands.Add(brand);
+        foreach (var m in models)
+            db.VehicleModels.Add(new VehicleModel { Brand = brand, Name = m });
+    }
 }
 
 static async Task AdminBootstrapAsync(

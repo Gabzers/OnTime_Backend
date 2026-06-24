@@ -34,7 +34,8 @@ public class ClientPipelineFlowTests : IAsyncLifetime
         var auth = await TestHelpers.RegisterManagerAsync(_factory.Client);
         await TestHelpers.ActivateSubscriptionDirectAsync(_factory.Db, auth.UserId);
         var stages = await _factory.Client.GetFromJsonAsync<IEnumerable<ClientStageDto>>("/api/stages", auth.Token);
-        var firstStage = stages!.OrderBy(s => s.Order).First();
+        // Production default for new clients (no StageId supplied) is Order=2 — "Agendar Test Drive"
+        var defaultStage = stages!.First(s => s.Order == 2);
 
         var req = new CreateClientRequest(
             FullName: "Maria Santos",
@@ -59,7 +60,7 @@ public class ClientPipelineFlowTests : IAsyncLifetime
         var result = await response.Content.ReadFromJsonAsync<ClientDto>();
         result.ShouldNotBeNull();
         result!.FullName.ShouldBe("Maria Santos");
-        result.CurrentStageId.ShouldBe(firstStage.Id);
+        result.CurrentStageId.ShouldBe(defaultStage.Id);
         result.Temperature.ShouldBe((int)DealTemperature.Hot); // just created
 
         // ASSERT — Client in DB
@@ -87,7 +88,7 @@ public class ClientPipelineFlowTests : IAsyncLifetime
             .ToListAsync();
         history.ShouldHaveSingleItem();
         history[0].FromStageId.ShouldBeNull(); // first entry has no "from"
-        history[0].ToStageId.ShouldBe(firstStage.Id);
+        history[0].ToStageId.ShouldBe(defaultStage.Id);
     }
 
     // ── Test 2 ───────────────────────────────────────────────────────────────

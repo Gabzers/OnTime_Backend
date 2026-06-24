@@ -22,8 +22,8 @@ public class ClientsController : ControllerBase
         [FromQuery] ClientFilterParams filter,
         CancellationToken ct)
     {
-        var brandId = User.IsManager() ? (Guid?)User.GetBrandId() : null;
-        var result = await _clients.GetPagedAsync(User.GetUserId(), brandId, filter, ct);
+        var scope = User.Scope();
+        var result = await _clients.GetPagedAsync(scope.UserId, scope.ManagerBrandScope, filter, ct);
         return Ok(result);
     }
 

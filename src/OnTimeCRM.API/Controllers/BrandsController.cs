@@ -18,14 +18,14 @@ public class BrandsController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAll(CancellationToken ct)
     {
-        var result = await _brands.GetByCompanyAsync(User.TryGetCompanyId() ?? Guid.Empty, ct);
+        var result = await _brands.GetByCompanyAsync(User.RequireCompanyId(), ct);
         return Ok(result);
     }
 
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetById(Guid id, CancellationToken ct)
     {
-        var result = await _brands.GetByIdAsync(id, User.TryGetCompanyId() ?? Guid.Empty, ct);
+        var result = await _brands.GetByIdAsync(id, User.RequireCompanyId(), ct);
         return Ok(result);
     }
 
@@ -34,7 +34,7 @@ public class BrandsController : ControllerBase
         [FromBody] CreateBrandRequest request,
         CancellationToken ct)
     {
-        var result = await _brands.CreateAsync(User.TryGetCompanyId() ?? Guid.Empty, request, ct);
+        var result = await _brands.CreateAsync(User.RequireCompanyId(), request, ct);
         return Created($"api/brands/{result.Id}", result);
     }
 
@@ -44,7 +44,7 @@ public class BrandsController : ControllerBase
         [FromBody] UpdateBrandRequest request,
         CancellationToken ct)
     {
-        var result = await _brands.UpdateAsync(id, User.TryGetCompanyId() ?? Guid.Empty, request, ct);
+        var result = await _brands.UpdateAsync(id, User.RequireCompanyId(), request, ct);
         return Ok(result);
     }
 
@@ -54,7 +54,7 @@ public class BrandsController : ControllerBase
         [FromBody] SetBrandActiveRequest request,
         CancellationToken ct)
     {
-        await _brands.SetActiveAsync(id, User.TryGetCompanyId() ?? Guid.Empty, request.IsActive, ct);
+        await _brands.SetActiveAsync(id, User.RequireCompanyId(), request.IsActive, ct);
         return NoContent();
     }
 }

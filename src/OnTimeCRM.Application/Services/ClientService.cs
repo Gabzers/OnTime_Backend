@@ -65,6 +65,10 @@ public class ClientService : IClientService
 
         var p = req.Proposal;
         var vehicleList = p?.Vehicles?.ToList();
+
+        if (p is not null && (vehicleList is null || vehicleList.Count == 0))
+            throw new ApiException(ApiErrorCatalog.PROPOSAL_MISSING_VEHICLE);
+
         var proposalValue = vehicleList?.Any(v => v.Price.HasValue) == true
             ? (decimal?)vehicleList.Sum(v => v.Price ?? 0m)
             : p?.ProposalValue;

@@ -92,19 +92,27 @@ public class SubscriptionFlowTests : IAsyncLifetime
     // ── Test 4 ───────────────────────────────────────────────────────────────
 
     [Fact]
-    public async Task PendingActivation_BlocksWriteOperations_Returns402()
+    public async Task PendingActivation_ExpiredTrial_BlocksAllOperations_Returns402()
     {
-        // ARRANGE — new user is PendingActivation by default
+        // ARRANGE — PendingActivation with no active trial (AuthService hardcodes 14 days,
+        // so we manually expire the trial to test the blocked state).
         var auth = await TestHelpers.RegisterManagerAsync(_factory.Client);
+        var user = await _factory.Db.Users.FindAsync(auth.UserId);
+        user!.TrialEndsAt = DateTimeOffset.UtcNow.AddDays(-1);
+        await _factory.Db.SaveChangesAsync();
+        _factory.Db.ChangeTracker.Clear();
+
         var token = await TestHelpers.LoginAsync(_factory.Client, auth.Email);
 
-        // ACT — try to create a client
+        // ACT
+        var getResp = await _factory.Client.GetAsync("/api/clients", token);
         var postResp = await _factory.Client.PostAsJsonAsync(
             "/api/clients",
             new { FullName = "Test", Phone = "351910000002", LeadSource = 0, BusinessType = 0, PaymentType = 0 },
             token);
 
-        // ASSERT — 402 Payment Required
+        // ASSERT — both blocked with 402
+        getResp.StatusCode.ShouldBe(HttpStatusCode.PaymentRequired);
         postResp.StatusCode.ShouldBe(HttpStatusCode.PaymentRequired);
     }
 
@@ -192,17 +200,20 @@ public class SubscriptionFlowTests : IAsyncLifetime
     [Fact]
     public async Task InactiveAccount_Returns403ForAllRequests()
     {
-        // ARRANGE
-        var auth = await TestHelpers.RegisterManagerAsync(_factory.Client);
+        // ARRANGE — obtain token while still active, then deactivate.
+        // This simulates a stale JWT used after account deactivation (the realistic scenario).
+        // Login itself now correctly rejects inactive users (T4 fix), so we need the token first.
+        var auth  = await TestHelpers.RegisterManagerAsync(_factory.Client);
+        await TestHelpers.ActivateSubscriptionDirectAsync(_factory.Db, auth.UserId, days: 30);
+        var token = await TestHelpers.LoginAsync(_factory.Client, auth.Email);
+
         var user = await _factory.Db.Users.FindAsync(auth.UserId);
         user!.AccountStatus = UserAccountStatus.Inactive;
         user.IsActive = false;
         await _factory.Db.SaveChangesAsync();
         _factory.Db.ChangeTracker.Clear();
 
-        var token = await TestHelpers.LoginAsync(_factory.Client, auth.Email);
-
-        // ASSERT
+        // ASSERT — middleware still blocks with 403 even though JWT is valid
         var resp = await _factory.Client.GetAsync("/api/clients", token);
         resp.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
     }
@@ -225,4 +236,66 @@ public class SubscriptionFlowTests : IAsyncLifetime
             resp.StatusCode.ShouldBe(HttpStatusCode.OK, $"Expected 200 for {route}");
         }
     }
+
+    // ── Test 10 ──────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task GetSubscriptionStatus_AfterRegistration_ReturnsTrial()
+    {
+        // ARRANGE
+        var auth = await TestHelpers.RegisterManagerAsync(_factory.Client);
+        var token = await TestHelpers.LoginAsync(_factory.Client, auth.Email);
+
+        // ACT
+        var resp = await _factory.Client.GetAsync("/api/subscription", token);
+        resp.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var dto = await resp.Content.ReadFromJsonAsync<SubscriptionStatusResponse>();
+        dto.ShouldNotBeNull();
+
+        // ASSERT — subscription status must reflect the actual Trial state
+        dto!.SubscriptionStatus.ShouldBe((int)SubscriptionStatus.Trial);
+        dto.Plan.ShouldBe((int)SubscriptionPlan.Trial);
+        dto.IsTrialActive.ShouldBeTrue();
+        dto.TrialEndsAt.ShouldNotBeNull();
+    }
+
+    // ── Test 11 ──────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task GetSubscriptionStatus_AfterActivation_ReturnsActive()
+    {
+        // ARRANGE
+        var auth = await TestHelpers.RegisterManagerAsync(_factory.Client);
+        await TestHelpers.ActivateSubscriptionDirectAsync(_factory.Db, auth.UserId, days: 30);
+
+        var token = await TestHelpers.LoginAsync(_factory.Client, auth.Email);
+
+        // ACT
+        var resp = await _factory.Client.GetAsync("/api/subscription", token);
+        resp.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var dto = await resp.Content.ReadFromJsonAsync<SubscriptionStatusResponse>();
+        dto.ShouldNotBeNull();
+
+        // ASSERT
+        dto!.SubscriptionStatus.ShouldBe((int)SubscriptionStatus.Active);
+        dto.AccountStatus.ShouldBe((int)UserAccountStatus.Active);
+        dto.IsTrialActive.ShouldBeFalse();
+        dto.ExpiresAt.ShouldNotBeNull();
+    }
+
+    // ── local DTO for deserialization ────────────────────────────────────────
+
+    private record SubscriptionStatusResponse(
+        int AccountStatus,
+        int Plan,
+        int SubscriptionStatus,
+        DateTimeOffset? TrialEndsAt,
+        DateTimeOffset? ExpiresAt,
+        bool IsTrialActive,
+        int? DaysUntilExpiry,
+        bool IsExpired,
+        bool CanRenew
+    );
 }

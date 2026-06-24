@@ -21,6 +21,7 @@ public static class ApiErrorCatalog
     public static readonly ApiError PROPOSAL_NOT_FOUND           = new("PROPOSAL_NOT_FOUND",           "Proposal not found.",                    "NotFound",    404);
     public static readonly ApiError PROPOSAL_NOT_ACTIVE          = new("PROPOSAL_NOT_ACTIVE",          "Proposal is not active.",                "UnprocessableEntity", 422);
     public static readonly ApiError PROPOSAL_ALREADY_CLOSED      = new("PROPOSAL_ALREADY_CLOSED",      "Proposal is already closed.",            "UnprocessableEntity", 422);
+    public static readonly ApiError PROPOSAL_MISSING_VEHICLE     = new("PROPOSAL_MISSING_VEHICLE",     "At least one vehicle is required.",       "UnprocessableEntity", 422);
 
     // ── Stage ─────────────────────────────────────────────────────────────────
     public static readonly ApiError STAGE_NOT_FOUND              = new("STAGE_NOT_FOUND",              "Stage not found.",                       "NotFound",    404);

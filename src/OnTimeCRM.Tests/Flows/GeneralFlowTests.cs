@@ -35,8 +35,15 @@ public class GeneralFlowTests : IAsyncLifetime
         var auth = await TestHelpers.RegisterManagerAsync(_factory.Client);
         await TestHelpers.ActivateSubscriptionDirectAsync(_factory.Db, auth.UserId);
 
-        var brand = await _factory.Db.VehicleBrands.FirstAsync();
-        var model = await _factory.Db.VehicleModels.FirstAsync(m => m.BrandId == brand.Id);
+        // Create a vehicle brand + model via API (vehicle_brands is not seeded with models)
+        var brandCreateResp = await _factory.Client.PostAsJsonAsync(
+            "/api/vehicles/brands", new CreateVehicleBrandRequest($"TestBrand-{Guid.NewGuid():N}", null), auth.Token);
+        var brandDto = await brandCreateResp.Content.ReadFromJsonAsync<VehicleBrandDto>();
+        var modelCreateResp = await _factory.Client.PostAsJsonAsync(
+            "/api/vehicles/models",
+            new CreateVehicleModelRequest(brandDto!.Id, "TestModel", null, 2024, null, null, null),
+            auth.Token);
+        var modelDto = await modelCreateResp.Content.ReadFromJsonAsync<VehicleModelDto>();
 
         var req = new CreateClientRequest(
             FullName: "João Silva",
@@ -52,7 +59,7 @@ public class GeneralFlowTests : IAsyncLifetime
                 Discount: 1500m,
                 ProposalDate: DateTimeOffset.UtcNow,
                 Vehicles: [
-                    new ProposalVehicleRequest(ModelId: model.Id, IsPreferred: true, Price: 45000m)
+                    new ProposalVehicleRequest(ModelId: modelDto!.Id, IsPreferred: true, Price: 45000m)
                 ]
             )
         );
@@ -74,7 +81,7 @@ public class GeneralFlowTests : IAsyncLifetime
         proposal.ProposalValue.ShouldBe(45000m);
         proposal.Discount.ShouldBe(1500m);
         proposal.Vehicles.ShouldNotBeEmpty();
-        proposal.Vehicles.First().ModelId.ShouldBe(model.Id);
+        proposal.Vehicles.First().ModelId.ShouldBe(modelDto!.Id);
     }
 
     // ── Test 2: Minimal client creation (only required fields) ──────────────
@@ -125,7 +132,9 @@ public class GeneralFlowTests : IAsyncLifetime
                     Year: 2019,
                     Km: 75000,
                     EstimatedValue: 12000m
-                )
+                ),
+                // At least one vehicle is required (proposal validation rule)
+                Vehicles: [new ProposalVehicleRequest(null, "New Vehicle TBD", true)]
             )
         );
 
@@ -321,9 +330,9 @@ public class GeneralFlowTests : IAsyncLifetime
         // Create a new brand
         var brandResp = await _factory.Client.PostAsJsonAsync(
             "/api/vehicles/brands",
-            new CreateVehicleBrandRequest("TestBrand", null),
+            new CreateVehicleBrandRequest($"DeleteBrand-{Guid.NewGuid():N}", null),
             auth.Token);
-        brandResp.StatusCode.ShouldBe(HttpStatusCode.OK);
+        brandResp.StatusCode.ShouldBe(HttpStatusCode.Created);
         var brand = await brandResp.Content.ReadFromJsonAsync<VehicleBrandDto>();
         brand.ShouldNotBeNull();
 

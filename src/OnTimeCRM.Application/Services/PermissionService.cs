@@ -32,7 +32,7 @@ public class PermissionService : IPermissionService
     {
         // Admin (role=2) always has full access — bypass DB and return computed set
         if (role == 2)
-            return AllRoutes.Select(r => new MenuPermissionDto(Guid.Empty, 2, r, true, true));
+            return AllRoutes.Select(r => new MenuPermissionDto(Guid.Empty, 2, r, true, true, true, true));
 
         await EnsureSeedAsync(ct);
 
@@ -58,10 +58,10 @@ public class PermissionService : IPermissionService
             var perm = existing.FirstOrDefault(p => p.RouteKey == req.RouteKey);
             if (perm is null) continue;
 
-            perm.CanView   = req.CanRead;
-            perm.CanCreate = req.CanEdit;  // sync: edit implies create
+            perm.CanView   = req.CanView;
+            perm.CanCreate = req.CanCreate;
             perm.CanEdit   = req.CanEdit;
-            perm.CanDelete = req.CanEdit;  // sync: edit implies delete
+            perm.CanDelete = req.CanDelete;
         }
 
         await _uow.SaveChangesAsync(ct);
@@ -103,5 +103,5 @@ public class PermissionService : IPermissionService
     }
 
     private static MenuPermissionDto ToDto(MenuItemPermission p) =>
-        new(p.Id, p.Role, p.RouteKey, p.CanView, p.CanEdit);
+        new(p.Id, p.Role, p.RouteKey, p.CanView, p.CanCreate, p.CanEdit, p.CanDelete);
 }

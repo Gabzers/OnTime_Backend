@@ -156,6 +156,7 @@ public class I18nController : ControllerBase
 
         ["ACTION.PROPOSAL.CREATE"]         = "Nova Proposta",
         ["ACTION.PROPOSAL.CONVERT"]        = "Converter para Venda",
+        ["ACTION.PROPOSAL.LOST"]           = "Marcar como Perdida",
         ["ACTION.PROPOSAL.MARK_LOST"]      = "Marcar como Perdida",
         ["ACTION.PROPOSAL.EDIT"]           = "Editar Proposta",
 
@@ -169,8 +170,10 @@ public class I18nController : ControllerBase
 
         ["ACTION.NOTIFICATION.DONE"]       = "Concluída",
         ["ACTION.NOTIFICATION.SNOOZE"]     = "Adiar",
+        ["ACTION.NOTIFICATION.SNOOZE_1H"]  = "Adiar 1h",
         ["ACTION.NOTIFICATION.IGNORE"]     = "Ignorar",
         ["ACTION.NOTIFICATION.CREATE"]     = "Nova Notificação",
+        ["ACTION.VIEW_ALL"]                = "Ver todas",
 
         // ── Enum — Lead Source ──────────────────────────────────────────────
         ["ENUM.LEAD_SOURCE.0"]             = "Stand",
@@ -210,8 +213,8 @@ public class I18nController : ControllerBase
         // ── Enum — Notification Status ──────────────────────────────────────
         ["ENUM.NOTIFICATION_STATUS.0"]     = "Pendente",
         ["ENUM.NOTIFICATION_STATUS.1"]     = "Concluída",
-        ["ENUM.NOTIFICATION_STATUS.2"]     = "Ignorada",
-        ["ENUM.NOTIFICATION_STATUS.3"]     = "Adiada",
+        ["ENUM.NOTIFICATION_STATUS.2"]     = "Adiada",
+        ["ENUM.NOTIFICATION_STATUS.3"]     = "Ignorada",
 
         // ── Enum — Notification Trigger ─────────────────────────────────────
         ["ENUM.NOTIFICATION_TRIGGER.0"]    = "Manual",
@@ -293,6 +296,7 @@ public class I18nController : ControllerBase
         ["PAGE.TEAM.TITLE"]                = "Equipa",
         ["PAGE.BRANDS.TITLE"]              = "Marcas do Stand",
         ["PAGE.SUBSCRIPTION.TITLE"]        = "Subscrição",
+        ["ACTION.SUBSCRIPTION.ACTIVATE"]   = "Ativar Subscrição",
         ["PAGE.PROFILE.TITLE"]              = "O Meu Perfil",
         ["PAGE.FRIENDS.TITLE"]              = "Amigos",
         ["PAGE.ADMIN.TITLE"]                = "Painel de Administração",
@@ -324,9 +328,12 @@ public class I18nController : ControllerBase
         ["VALIDATION.REQUIRED"]            = "Campo obrigatório.",
         ["MSG.ERROR.UNAUTHORIZED"]         = "Sessão expirada. Por favor inicie sessão novamente.",
         ["MSG.ERROR.FORBIDDEN"]            = "Não tem permissão para realizar esta ação.",
+        ["MSG.ADMIN.FULL_ACCESS"]          = "O Administrador tem acesso total — as suas permissões não podem ser alteradas.",
         ["MSG.ERROR.NOT_FOUND"]            = "Registo não encontrado.",
         ["MSG.SUBSCRIPTION.REQUIRED"]      = "A sua subscrição expirou. Por favor renove para continuar.",
         ["MSG.CLIENT.CREATED"]             = "Cliente criado com sucesso.",
+        ["MSG.SALE.CREATED"]               = "Venda registada com sucesso.",
+        ["MSG.CONVERT.SOLD_AT_HINT"]       = "Quando foi concretizada a venda? (pode ser retroativo)",
         ["MSG.EMPTY_STATE.FRIENDS"]        = "Ainda não tens amigos. Adiciona alguém pelo e-mail!",
         ["MSG.FRIEND.REQUEST_SENT"]        = "Pedido de amizade enviado.",
         ["MSG.FRIEND.ACCEPTED"]            = "Pedido aceite.",
@@ -413,6 +420,7 @@ public class I18nController : ControllerBase
 
         ["PAGE.GOALS.TITLE"]                = "My Goals",
         ["PAGE.ACCESS_CONTROL.TITLE"]       = "Access Control",
+        ["ACTION.SUBSCRIPTION.ACTIVATE"]    = "Activate Subscription",
 
         ["LABEL.GOAL.METRIC_TYPE"]          = "Metric",
         ["LABEL.GOAL.METRIC"]               = "Metric",
@@ -507,6 +515,7 @@ public class I18nController : ControllerBase
         ["ACTION.SEND"]                    = "Send",
 
         ["ACTION.PROPOSAL.CONVERT"]        = "Convert to Sale",
+        ["ACTION.PROPOSAL.LOST"]           = "Mark as Lost",
         ["ACTION.PROPOSAL.MARK_LOST"]      = "Mark as Lost",
 
         ["ACTION.STAGE.CHANGE"]            = "Change Stage",
@@ -516,6 +525,13 @@ public class I18nController : ControllerBase
         ["ACTION.FRIEND.REJECT"]           = "Reject",
         ["ACTION.FRIEND.REMOVE"]           = "Remove Friend",
         ["ACTION.FRIEND.VIEW_PROFILE"]     = "View Profile",
+
+        ["ACTION.NOTIFICATION.DONE"]       = "Done",
+        ["ACTION.NOTIFICATION.SNOOZE"]     = "Snooze",
+        ["ACTION.NOTIFICATION.SNOOZE_1H"]  = "Snooze 1h",
+        ["ACTION.NOTIFICATION.IGNORE"]     = "Ignore",
+        ["ACTION.NOTIFICATION.CREATE"]     = "New Notification",
+        ["ACTION.VIEW_ALL"]                = "View all",
 
         ["ENUM.LEAD_SOURCE.0"]             = "Showroom",
         ["ENUM.LEAD_SOURCE.1"]             = "Phone",
@@ -549,8 +565,8 @@ public class I18nController : ControllerBase
 
         ["ENUM.NOTIFICATION_STATUS.0"]     = "Pending",
         ["ENUM.NOTIFICATION_STATUS.1"]     = "Done",
-        ["ENUM.NOTIFICATION_STATUS.2"]     = "Ignored",
-        ["ENUM.NOTIFICATION_STATUS.3"]     = "Snoozed",
+        ["ENUM.NOTIFICATION_STATUS.2"]     = "Snoozed",
+        ["ENUM.NOTIFICATION_STATUS.3"]     = "Ignored",
 
         ["ENUM.USER_ROLE.0"]               = "Salesperson",
         ["ENUM.USER_ROLE.1"]               = "Manager",
@@ -590,7 +606,13 @@ public class I18nController : ControllerBase
         ["MSG.EMPTY_STATE.DEFAULT"]        = "No results.",
         ["MSG.DELETED"]                    = "Deleted successfully.",
         ["VALIDATION.REQUIRED"]            = "Required field.",
+        ["MSG.ERROR.UNAUTHORIZED"]         = "Session expired. Please log in again.",
+        ["MSG.ERROR.FORBIDDEN"]            = "You do not have permission to perform this action.",
+        ["MSG.ERROR.NOT_FOUND"]            = "Record not found.",
+        ["MSG.ADMIN.FULL_ACCESS"]          = "The Administrator has full access — their permissions cannot be changed.",
         ["MSG.CLIENT.CREATED"]             = "Client created successfully.",
+        ["MSG.SALE.CREATED"]               = "Sale registered successfully.",
+        ["MSG.CONVERT.SOLD_AT_HINT"]       = "When was the sale closed? (can be backdated)",
         ["MSG.EMPTY_STATE.FRIENDS"]        = "No friends yet. Add someone by email!",
         ["MSG.FRIEND.REQUEST_SENT"]        = "Friend request sent.",
         ["MSG.FRIEND.ACCEPTED"]            = "Request accepted.",

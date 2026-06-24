@@ -390,6 +390,9 @@ FodyWeavers.xsd
 !.vscode/extensions.json
 *.code-workspace
 
+# Claude Code / AI tooling (local-only config, not project content)
+.claude/
+
 # Local History for Visual Studio Code
 .history/
 

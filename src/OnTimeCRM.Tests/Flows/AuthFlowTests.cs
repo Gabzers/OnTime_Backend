@@ -159,6 +159,31 @@ public class AuthFlowTests : IAsyncLifetime
         body.ShouldContain("USER_INACTIVE");
     }
 
+    // ── Test 4b ──────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task Login_WithInactiveStatusAndIsActiveFalse_Returns401()
+    {
+        // ARRANGE — the bug: IsActive=false + AccountStatus=Inactive bypassed the check.
+        // The inverted condition `!IsActive && AccountStatus != Inactive` evaluates false
+        // for this combination, letting the user log in.
+        var auth = await TestHelpers.RegisterManagerAsync(_factory.Client, "soft_deleted@test.pt");
+        var user = await _factory.Db.Users.FindAsync(auth.UserId);
+        user!.IsActive = false;
+        user.AccountStatus = UserAccountStatus.Inactive;
+        await _factory.Db.SaveChangesAsync();
+        _factory.Db.ChangeTracker.Clear();
+
+        // ACT
+        var loginReq = new LoginRequest(Email: "soft_deleted@test.pt", Password: "Teste123!");
+        var response = await _factory.Client.PostAsJsonAsync("/api/auth/login", loginReq);
+
+        // ASSERT — must be blocked
+        response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+        var body = await response.Content.ReadAsStringAsync();
+        body.ShouldContain("USER_INACTIVE");
+    }
+
     // ── Test 5 ───────────────────────────────────────────────────────────────
 
     [Fact]

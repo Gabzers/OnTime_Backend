@@ -244,6 +244,67 @@ public class ProposalSaleFlowTests : IAsyncLifetime
     // ── Test 6 ───────────────────────────────────────────────────────────────
 
     [Fact]
+    public async Task CreateClientWithProposal_WithNoVehicles_Returns422ProposalMissingVehicle()
+    {
+        // ARRANGE
+        var auth = await TestHelpers.RegisterManagerAsync(_factory.Client);
+        await TestHelpers.ActivateSubscriptionDirectAsync(_factory.Db, auth.UserId);
+
+        var req = new OnTimeCRM.Application.DTOs.Clients.CreateClientRequest(
+            FullName: "Test Client",
+            Email: "test@example.com",
+            Proposal: new OnTimeCRM.Application.DTOs.Clients.CreateProposalReq(
+                BusinessType: 0,
+                PaymentType: 0,
+                ProposalValue: 15000m,
+                ProposalDate: DateTimeOffset.UtcNow,
+                Vehicles: [] // empty list
+            )
+        );
+
+        // ACT
+        var resp = await _factory.Client.PostAsJsonAsync("/api/clients", req, auth.Token);
+
+        // ASSERT — 422 with PROPOSAL_MISSING_VEHICLE
+        resp.StatusCode.ShouldBe(HttpStatusCode.UnprocessableEntity);
+        var body = await resp.Content.ReadAsStringAsync();
+        body.ShouldContain("PROPOSAL_MISSING_VEHICLE");
+    }
+
+    [Fact]
+    public async Task CreateProposalForClient_WithNoVehicles_Returns422ProposalMissingVehicle()
+    {
+        // ARRANGE
+        var auth = await TestHelpers.RegisterManagerAsync(_factory.Client);
+        await TestHelpers.ActivateSubscriptionDirectAsync(_factory.Db, auth.UserId);
+        var (clientId, _) = await TestHelpers.CreateClientWithProposalAsync(
+            _factory.Client, auth.Token, db: _factory.Db);
+
+        var req = new CreateProposalRequest(
+            BusinessType: 0,
+            PaymentType: 0,
+            ProposalValue: 10000m,
+            Discount: null,
+            ProposalDate: DateTimeOffset.UtcNow,
+            HasTradeIn: false,
+            TradeInType: null, TradeInPlate: null, TradeInBrand: null,
+            TradeInModel: null, TradeInYear: null, TradeInKm: null,
+            TradeInEstimatedValue: null,
+            Vehicles: [] // empty
+        );
+
+        // ACT
+        var resp = await _factory.Client.PostAsJsonAsync($"/api/clients/{clientId}/proposals", req, auth.Token);
+
+        // ASSERT
+        resp.StatusCode.ShouldBe(HttpStatusCode.UnprocessableEntity);
+        var body = await resp.Content.ReadAsStringAsync();
+        body.ShouldContain("PROPOSAL_MISSING_VEHICLE");
+    }
+
+    // ── Test 7 ───────────────────────────────────────────────────────────────
+
+    [Fact]
     public async Task MarkLost_WithLossReason_UpdatesProposalAndCreatesHistory()
     {
         // ARRANGE

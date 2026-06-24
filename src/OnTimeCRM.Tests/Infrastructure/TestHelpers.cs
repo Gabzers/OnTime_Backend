@@ -133,6 +133,7 @@ public static class TestHelpers
             Phone: $"351{_faker.Random.Long(910000000, 999999999)}",
             TaxId: null,
             LeadSource: (int)LeadSource.WalkIn,
+            StageId: stageId,
             Proposal: new CreateProposalReq(
                 BusinessType: (int)BusinessType.DirectPurchase,
                 PaymentType: (int)PaymentType.Financing,

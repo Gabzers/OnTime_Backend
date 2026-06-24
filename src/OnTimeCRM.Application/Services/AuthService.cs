@@ -155,7 +155,7 @@ public class AuthService : IAuthService
         if (!_hasher.Verify(user.PasswordHash, req.Password))
             throw new ApiException(ApiErrorCatalog.USER_INVALID_CREDENTIALS);
 
-        if (!user.IsActive && user.AccountStatus != UserAccountStatus.Inactive)
+        if (!user.IsActive)
             throw new ApiException(ApiErrorCatalog.USER_INACTIVE);
 
         return BuildLoginResponse(user);

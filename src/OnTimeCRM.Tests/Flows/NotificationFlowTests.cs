@@ -121,7 +121,7 @@ public class NotificationFlowTests : IAsyncLifetime
             UserId = auth.UserId,
             ClientId = clientId,
             Title = "Today",
-            ScheduledFor = DateTimeOffset.UtcNow.Date,
+            ScheduledFor = new DateTimeOffset(DateTimeOffset.UtcNow.UtcDateTime.Date, TimeSpan.Zero),
             Status = NotificationStatus.Pending,
             Trigger = NotificationTrigger.Manual
         };
@@ -164,7 +164,7 @@ public class NotificationFlowTests : IAsyncLifetime
         {
             UserId = auth.UserId,
             Title = "Test done",
-            ScheduledFor = DateTimeOffset.UtcNow.Date,
+            ScheduledFor = new DateTimeOffset(DateTimeOffset.UtcNow.UtcDateTime.Date, TimeSpan.Zero),
             Status = NotificationStatus.Pending,
             Trigger = NotificationTrigger.Manual
         };
@@ -202,7 +202,7 @@ public class NotificationFlowTests : IAsyncLifetime
         {
             UserId = auth.UserId,
             Title = "Test snooze",
-            ScheduledFor = DateTimeOffset.UtcNow.Date,
+            ScheduledFor = new DateTimeOffset(DateTimeOffset.UtcNow.UtcDateTime.Date, TimeSpan.Zero),
             Status = NotificationStatus.Pending,
             Trigger = NotificationTrigger.Manual
         };

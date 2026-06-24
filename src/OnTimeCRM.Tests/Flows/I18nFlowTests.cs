@@ -96,6 +96,81 @@ public class I18nFlowTests : IAsyncLifetime
 
     // ── Test 4 ───────────────────────────────────────────────────────────────
 
+    [Theory]
+    [InlineData("pt-PT", "ENUM.NOTIFICATION_STATUS.2", "Adiada")]
+    [InlineData("pt-PT", "ENUM.NOTIFICATION_STATUS.3", "Ignorada")]
+    [InlineData("en-US", "ENUM.NOTIFICATION_STATUS.2", "Snoozed")]
+    [InlineData("en-US", "ENUM.NOTIFICATION_STATUS.3", "Ignored")]
+    public async Task NotificationStatusLabels_MatchCanonicalEnum(string locale, string key, string expectedLabel)
+    {
+        // NotificationStatus: Pending=0, Done=1, Snoozed=2, Ignored=3 (Domain/Enums/NotificationEnums.cs)
+        var resp = await _factory.Client.GetAsync($"/api/i18n?locale={locale}");
+        resp.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var json = JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
+        json.RootElement.GetProperty("map").TryGetProperty(key, out var valueProp).ShouldBeTrue();
+        valueProp.GetString().ShouldBe(expectedLabel);
+    }
+
+    // ── Test 5 ───────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task GetTranslationMap_ContentType_IsJsonWithUtf8Charset()
+    {
+        var resp = await _factory.Client.GetAsync("/api/i18n?locale=pt-PT");
+        resp.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var ct = resp.Content.Headers.ContentType;
+        ct.ShouldNotBeNull();
+        ct!.MediaType.ShouldBe("application/json");
+        ct.CharSet?.ToLowerInvariant().ShouldBe("utf-8");
+    }
+
+    // ── Test 6 ───────────────────────────────────────────────────────────────
+
+    [Theory]
+    [InlineData("pt-PT", "NAV.NOTIFICATIONS", "Notificações")]
+    [InlineData("pt-PT", "NAV.VEHICLES",      "Veículos")]
+    [InlineData("pt-PT", "NAV.SETTINGS",      "Definições")]
+    [InlineData("pt-PT", "LABEL.CLIENT.LAST_INTERACTION", "Última Interação")]
+    public async Task GetTranslationMap_PortugueseDiacritics_AreNotMojibaked(
+        string locale, string key, string expected)
+    {
+        var resp = await _factory.Client.GetAsync($"/api/i18n?locale={locale}");
+        resp.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        // Read as raw bytes and decode as UTF-8 explicitly to rule out framework auto-decode issues
+        var bytes = await resp.Content.ReadAsByteArrayAsync();
+        var body = System.Text.Encoding.UTF8.GetString(bytes);
+        var json = JsonDocument.Parse(body);
+        json.RootElement.GetProperty("map").TryGetProperty(key, out var val).ShouldBeTrue();
+        val.GetString().ShouldBe(expected);
+    }
+
+    // ── Test 7 ───────────────────────────────────────────────────────────────
+
+    [Theory]
+    [InlineData("pt-PT", "ACTION.PROPOSAL.LOST")]
+    [InlineData("pt-PT", "ACTION.SUBSCRIPTION.ACTIVATE")]
+    [InlineData("pt-PT", "MSG.CONVERT.SOLD_AT_HINT")]
+    [InlineData("pt-PT", "MSG.SALE.CREATED")]
+    [InlineData("en-US", "ACTION.PROPOSAL.LOST")]
+    [InlineData("en-US", "ACTION.SUBSCRIPTION.ACTIVATE")]
+    [InlineData("en-US", "MSG.CONVERT.SOLD_AT_HINT")]
+    [InlineData("en-US", "MSG.SALE.CREATED")]
+    public async Task GetTranslationMap_AllComponentKeys_ArePresent(string locale, string key)
+    {
+        var resp = await _factory.Client.GetAsync($"/api/i18n?locale={locale}");
+        resp.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var json = JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
+        json.RootElement.GetProperty("map").TryGetProperty(key, out var val).ShouldBeTrue(
+            $"Key '{key}' missing from {locale} map");
+        val.GetString().ShouldNotBeNullOrEmpty();
+    }
+
+    // ── Test 8 ───────────────────────────────────────────────────────────────
+
     [Fact]
     public async Task GetTranslationMap_UnknownLocale_FallsBackToPtPT()
     {
