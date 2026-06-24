@@ -200,4 +200,4 @@ Key settings (via `appsettings.json`, environment variables, or `.env` with Dock
 
 ---
 
-*Built as a personal/academic project by [Gabriel Proença](https://github.com/Gabzers), Full Stack Developer (.NET / C# / SQL Server) and MSc Software Engineering student at ISEP.*
+*Built as a personal/professional project by [Gabriel Proença](https://github.com/Gabzers), Full Stack Developer (.NET / C# / SQL Server) and MSc Software Engineering student at ISEP.*
