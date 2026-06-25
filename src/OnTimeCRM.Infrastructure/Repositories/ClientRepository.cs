@@ -35,6 +35,7 @@ public sealed class ClientRepository : IClientRepository
             r.Id, r.FullName, r.Phone, r.Email,
             r.LeadSource, r.Temperature,
             r.CurrentStageId, r.StageName, r.StageColor,
+            r.StageIsFinal, r.StageIsWon, r.StageIsLost,
             r.LastInteractionAt, r.CreatedAt))
             .ToList();
 
@@ -69,10 +70,12 @@ public sealed class ClientRepository : IClientRepository
             .SqlQuery<HotDealRow>($"SELECT * FROM fn_get_hot_deals({userId}, {limit})")
             .ToListAsync(ct);
 
+        // fn_get_hot_deals already filters to non-final stages only.
         return rows.Select(r => new ClientListDto(
             r.Id, r.FullName, r.Phone, r.Email,
             r.LeadSource, r.Temperature,
             r.CurrentStageId, r.StageName, r.StageColor,
+            CurrentStageIsFinal: false, CurrentStageIsWon: false, CurrentStageIsLost: false,
             r.LastInteractionAt, r.CreatedAt));
     }
 
@@ -127,6 +130,7 @@ public sealed class ClientRepository : IClientRepository
         Guid Id, string FullName, string? Phone, string? Email,
         int LeadSource, int Temperature,
         Guid CurrentStageId, string StageName, string? StageColor,
+        bool StageIsFinal, bool StageIsWon, bool StageIsLost,
         DateTimeOffset? LastInteractionAt, DateTimeOffset CreatedAt,
         long TotalCount);
 

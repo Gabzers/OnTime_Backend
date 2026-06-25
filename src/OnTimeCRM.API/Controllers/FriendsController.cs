@@ -31,7 +31,31 @@ public class FriendsController : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>Send a friend request by email</summary>
+    /// <summary>Search active users by name or email, for the add-friend autocomplete</summary>
+    [HttpGet("search")]
+    public async Task<IActionResult> Search([FromQuery] string q, CancellationToken ct)
+    {
+        var result = await _service.SearchUsersAsync(User.GetUserId(), q ?? string.Empty, ct);
+        return Ok(result);
+    }
+
+    /// <summary>Get pending friend requests sent by the current user, still awaiting a response</summary>
+    [HttpGet("requests/sent")]
+    public async Task<IActionResult> GetSentRequests(CancellationToken ct)
+    {
+        var result = await _service.GetSentRequestsAsync(User.GetUserId(), ct);
+        return Ok(result);
+    }
+
+    /// <summary>Withdraw a friend request the current user sent, while it's still pending</summary>
+    [HttpDelete("requests/{id:guid}")]
+    public async Task<IActionResult> CancelRequest(Guid id, CancellationToken ct)
+    {
+        await _service.CancelRequestAsync(User.GetUserId(), id, ct);
+        return NoContent();
+    }
+
+    /// <summary>Send a friend request by email or userId</summary>
     [HttpPost("requests")]
     public async Task<IActionResult> SendRequest(
         [FromBody] SendFriendRequestDto request, CancellationToken ct)

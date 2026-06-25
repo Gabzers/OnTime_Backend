@@ -24,6 +24,7 @@ public sealed class VehicleRepository : IVehicleRepository
 
     public async Task<PagedResult<VehicleModelListDto>> GetModelsAsync(
         VehicleSearchParams p,
+        Guid userId,
         CancellationToken ct = default)
     {
         var query = _db.VehicleModels
@@ -32,7 +33,21 @@ public sealed class VehicleRepository : IVehicleRepository
             .AsQueryable();
 
         if (p.BrandId.HasValue)
+        {
             query = query.Where(m => m.BrandId == p.BrandId.Value);
+        }
+        else
+        {
+            // No explicit brand filter — default to the user's selected brands.
+            // Empty selection = no filter = all brands (see USER-BRANDS.md).
+            var selectedBrandIds = await _db.UserVehicleBrands
+                .Where(x => x.UserId == userId)
+                .Select(x => x.VehicleBrandId)
+                .ToListAsync(ct);
+
+            if (selectedBrandIds.Count > 0)
+                query = query.Where(m => selectedBrandIds.Contains(m.BrandId));
+        }
 
         if (!string.IsNullOrWhiteSpace(p.Search))
         {
@@ -51,7 +66,9 @@ public sealed class VehicleRepository : IVehicleRepository
             .Take(size)
             .Select(m => new VehicleModelListDto(
                 m.Id, m.BrandId, m.Brand.Name, m.Name,
-                m.Version, m.Year, m.FuelType == null ? null : (int)m.FuelType))
+                m.Version, m.Year, m.FuelType == null ? null : (int)m.FuelType,
+                m.IsActive,
+                m.Versions.Any(v => v.ExternalColors != null && v.ExternalColors != "" && v.ExternalColors != "[]")))
             .ToListAsync(ct);
 
         return new PagedResult<VehicleModelListDto>(items, total, p.Page, size);
@@ -114,5 +131,6 @@ public sealed class VehicleRepository : IVehicleRepository
                     v.Id, v.Name,
                     ColorArrayHelper.Parse(v.ExternalColors),
                     ColorArrayHelper.Parse(v.InternalColors)))
-                .ToList());
+                .ToList(),
+            m.IsActive);
 }

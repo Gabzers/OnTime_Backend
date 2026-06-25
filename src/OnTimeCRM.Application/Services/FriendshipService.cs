@@ -21,8 +21,10 @@ public class FriendshipService : IFriendshipService
     public async Task<FriendRequestDto> SendRequestAsync(
         Guid senderId, SendFriendRequestDto dto, CancellationToken ct = default)
     {
-        var receiver = await _repo.FindUserByEmailAsync(dto.Email.ToLower(), ct)
-            ?? throw new ApiException(ApiErrorCatalog.USER_NOT_FOUND);
+        User? found = dto.UserId.HasValue
+            ? await _repo.FindUserByIdAsync(dto.UserId.Value, ct)
+            : await _repo.FindUserByEmailAsync(dto.Email?.ToLower() ?? string.Empty, ct);
+        var receiver = found ?? throw new ApiException(ApiErrorCatalog.USER_NOT_FOUND);
 
         if (receiver.Id == senderId)
             throw new ApiException(ApiErrorCatalog.AUTH_FORBIDDEN);
@@ -53,7 +55,37 @@ public class FriendshipService : IFriendshipService
         _repo.Add(friendship);
         await _uow.SaveChangesAsync(ct);
 
-        return new FriendRequestDto(friendship.Id, senderId, string.Empty, dto.Email, friendship.CreatedAt);
+        var sender = await _repo.FindUserByIdAsync(senderId, ct);
+        return new FriendRequestDto(
+            friendship.Id, senderId,
+            sender?.FullName ?? string.Empty,
+            sender?.Email ?? string.Empty,
+            friendship.CreatedAt);
+    }
+
+    public Task<IEnumerable<FriendSearchResultDto>> SearchUsersAsync(
+        Guid userId, string query, CancellationToken ct = default) =>
+        _repo.SearchUsersAsync(userId, query, ct);
+
+    public Task<IEnumerable<SentFriendRequestDto>> GetSentRequestsAsync(
+        Guid userId, CancellationToken ct = default) =>
+        _repo.GetSentRequestsAsync(userId, ct);
+
+    public async Task CancelRequestAsync(
+        Guid senderId, Guid requestId, CancellationToken ct = default)
+    {
+        var fr = await _repo.FindByIdAsync(requestId, ct)
+            ?? throw new ApiException(ApiErrorCatalog.USER_NOT_FOUND);
+
+        // Only the sender can withdraw their own still-pending request.
+        if (fr.SenderId != senderId)
+            throw new ApiException(ApiErrorCatalog.AUTH_FORBIDDEN);
+
+        if (fr.Status != FriendshipStatus.Pending)
+            throw new ApiException(ApiErrorCatalog.AUTH_FORBIDDEN);
+
+        _repo.Remove(fr);
+        await _uow.SaveChangesAsync(ct);
     }
 
     public async Task<FriendDto> AcceptAsync(

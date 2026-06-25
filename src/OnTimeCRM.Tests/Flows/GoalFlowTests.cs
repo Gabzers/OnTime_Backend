@@ -148,6 +148,125 @@ public class GoalFlowTests : IAsyncLifetime
         list!.Count.ShouldBe(0);
     }
 
+    // ── Test 5 ───────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task Goals_WeeklyGoal_OnlyCountsSalesInsideItsOwnWindow_NotTheWholeMonth()
+    {
+        var auth = await TestHelpers.RegisterManagerAsync(_factory.Client);
+        await TestHelpers.ActivateSubscriptionDirectAsync(_factory.Db, auth.UserId);
+
+        // A weekly goal starting today — its window is [today, today+7d).
+        var todayUtc = new DateTimeOffset(DateTimeOffset.UtcNow.Date, TimeSpan.Zero);
+        var req = new CreateUserGoalRequest(
+            MetricType: (int)GoalMetricType.Sales,
+            Period: (int)GoalPeriod.Weekly,
+            TargetValue: 10m,
+            StartDate: todayUtc,
+            EndDate: null
+        );
+        var createResp = await _factory.Client.PostAsJsonAsync("/api/goals", req, auth.Token);
+        createResp.StatusCode.ShouldBe(HttpStatusCode.Created);
+
+        // One sale inside the week, backdated 10 days (still this calendar month) — must NOT count.
+        var (_, oldProposalId) = await TestHelpers.CreateClientWithProposalAsync(_factory.Client, auth.Token, db: _factory.Db);
+        var oldSaleReq = new ConvertToSaleRequest(
+            SoldAt: DateTimeOffset.UtcNow.AddDays(-10), FinalValue: 15000m,
+            PaymentType: (int)PaymentType.Cash, ModelId: null, FreeTextModel: "Car",
+            Plate: null, Chassis: null, Obs: null
+        );
+        await _factory.Client.PostAsJsonAsync($"/api/proposals/{oldProposalId}/convert", oldSaleReq, auth.Token);
+
+        // One sale inside the week — must count.
+        var (_, newProposalId) = await TestHelpers.CreateClientWithProposalAsync(_factory.Client, auth.Token, db: _factory.Db);
+        var newSaleReq = new ConvertToSaleRequest(
+            SoldAt: DateTimeOffset.UtcNow, FinalValue: 15000m,
+            PaymentType: (int)PaymentType.Cash, ModelId: null, FreeTextModel: "Car",
+            Plate: null, Chassis: null, Obs: null
+        );
+        await _factory.Client.PostAsJsonAsync($"/api/proposals/{newProposalId}/convert", newSaleReq, auth.Token);
+
+        var listResp = await _factory.Client.GetAsync("/api/goals", auth.Token);
+        var list = await listResp.Content.ReadFromJsonAsync<List<GoalProgressDto>>();
+
+        // Only the in-window sale counts — proves progress is scoped to the goal's own dates,
+        // not a blanket "this calendar month" snapshot shared by every period.
+        list![0].CurrentValue.ShouldBe(1m);
+    }
+
+    // ── Test 6 ───────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task Goals_SupportsAnnualPeriod_AndShowOnDashboardFlag()
+    {
+        var auth = await TestHelpers.RegisterManagerAsync(_factory.Client);
+        await TestHelpers.ActivateSubscriptionDirectAsync(_factory.Db, auth.UserId);
+
+        var startOfYear = new DateTimeOffset(DateTimeOffset.UtcNow.Year, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var req = new CreateUserGoalRequest(
+            MetricType: (int)GoalMetricType.Sales,
+            Period: (int)GoalPeriod.Annual,
+            TargetValue: 50m,
+            StartDate: startOfYear,
+            EndDate: null,
+            ShowOnDashboard: true
+        );
+
+        var createResp = await _factory.Client.PostAsJsonAsync("/api/goals", req, auth.Token);
+        createResp.StatusCode.ShouldBe(HttpStatusCode.Created);
+        var created = await createResp.Content.ReadFromJsonAsync<UserGoalDto>();
+        created!.Period.ShouldBe((int)GoalPeriod.Annual);
+        created.ShowOnDashboard.ShouldBeTrue();
+
+        // A sale made today (within the year) must count toward the annual goal.
+        var (_, proposalId) = await TestHelpers.CreateClientWithProposalAsync(_factory.Client, auth.Token, db: _factory.Db);
+        var saleReq = new ConvertToSaleRequest(
+            SoldAt: DateTimeOffset.UtcNow, FinalValue: 15000m,
+            PaymentType: (int)PaymentType.Cash, ModelId: null, FreeTextModel: "Car",
+            Plate: null, Chassis: null, Obs: null
+        );
+        await _factory.Client.PostAsJsonAsync($"/api/proposals/{proposalId}/convert", saleReq, auth.Token);
+
+        var listResp = await _factory.Client.GetAsync("/api/goals", auth.Token);
+        var list = await listResp.Content.ReadFromJsonAsync<List<GoalProgressDto>>();
+        list![0].CurrentValue.ShouldBe(1m);
+        list[0].Goal.ShowOnDashboard.ShouldBeTrue();
+    }
+
+    // ── Test 7 ───────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task User_CannotUpdateOrDelete_AnotherUsersGoal()
+    {
+        var owner = await TestHelpers.RegisterManagerAsync(_factory.Client);
+        await TestHelpers.ActivateSubscriptionDirectAsync(_factory.Db, owner.UserId);
+        var stranger = await TestHelpers.RegisterManagerAsync(_factory.Client);
+        await TestHelpers.ActivateSubscriptionDirectAsync(_factory.Db, stranger.UserId);
+
+        var createReq = new CreateUserGoalRequest(
+            MetricType: (int)GoalMetricType.Sales,
+            Period: (int)GoalPeriod.Monthly,
+            TargetValue: 5m,
+            StartDate: DateTimeOffset.UtcNow,
+            EndDate: null
+        );
+        var createResp = await _factory.Client.PostAsJsonAsync("/api/goals", createReq, owner.Token);
+        var goal = await createResp.Content.ReadFromJsonAsync<UserGoalDto>();
+
+        var updateResp = await _factory.Client.PutAsJsonAsync(
+            $"/api/goals/{goal!.Id}",
+            new UpdateUserGoalRequest(TargetValue: 999m, StartDate: goal.StartDate, EndDate: null),
+            stranger.Token);
+        updateResp.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+
+        var deleteResp = await _factory.Client.DeleteAsync($"/api/goals/{goal.Id}", stranger.Token);
+        deleteResp.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+
+        // Confirm it's untouched — the owner still sees their original target value.
+        var ownerGoals = await _factory.Client.GetFromJsonAsync<List<GoalProgressDto>>("/api/goals", owner.Token);
+        ownerGoals!.Single(g => g.Goal.Id == goal.Id).Goal.TargetValue.ShouldBe(5m);
+    }
+
     // ── Test 4 ───────────────────────────────────────────────────────────────
 
     [Fact]

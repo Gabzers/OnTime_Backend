@@ -60,6 +60,16 @@ public class UserService : IUserService
         return ToDto(user);
     }
 
+    public async Task<UserVehicleBrandsDto> GetMyVehicleBrandsAsync(Guid userId, CancellationToken ct = default) =>
+        new(await _repo.GetVehicleBrandIdsAsync(userId, ct));
+
+    public async Task SetMyVehicleBrandsAsync(
+        Guid userId, UpdateUserVehicleBrandsRequest req, CancellationToken ct = default)
+    {
+        await _repo.SetVehicleBrandIdsAsync(userId, req.BrandIds, ct);
+        await _uow.SaveChangesAsync(ct);
+    }
+
     private static UserDto ToDto(Domain.Entities.User u) =>
         new(u.Id, u.FullName, u.Email, u.Phone,
             (int)u.Role, (int)u.AccountStatus, 0,

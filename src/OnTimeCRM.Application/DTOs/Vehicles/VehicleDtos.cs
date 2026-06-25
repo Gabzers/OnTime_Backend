@@ -27,9 +27,14 @@ public record VehicleModelDto(
     int? FuelType,
     decimal? BasePrice,
     string? ImageUrl,
-    IEnumerable<VehicleVersionDto> Versions
+    IEnumerable<VehicleVersionDto> Versions,
+    bool IsActive = true
 );
 
+/// <summary>
+/// IsConfigured: true when the model has at least one version with ≥1 exterior colour.
+/// Drives the status dot on the Vehicles screen: grey=!IsConfigured, red=!IsActive, green=both.
+/// </summary>
 public record VehicleModelListDto(
     Guid Id,
     Guid BrandId,
@@ -37,8 +42,12 @@ public record VehicleModelListDto(
     string Name,
     string? Version,
     int? Year,
-    int? FuelType
+    int? FuelType,
+    bool IsActive = true,
+    bool IsConfigured = false
 );
+
+public record SetVehicleModelActiveRequest(bool IsActive);
 
 public record CreateVehicleBrandRequest([Required] string Name, string? LogoUrl);
 public record CreateVehicleModelRequest(

@@ -78,10 +78,14 @@ public class PermissionFlowTests : IAsyncLifetime
         perms.ShouldNotBeNull();
         perms!.Count.ShouldBeGreaterThan(0);
 
-        // Admin routes should be seeded with all flags false for Salesperson
-        var adminPerm = perms.First(p => p.RouteKey == "/admin");
-        adminPerm.CanView.ShouldBeFalse();
-        adminPerm.CanCreate.ShouldBeFalse();
+        // Manager-only routes should be seeded with all flags false for Salesperson.
+        // "/admin" itself is deliberately NOT in this seeded set at all — cross-tenant platform
+        // admin access is gated by role==2 at the policy level (Program.cs's "AdminOnly"
+        // policy), never a per-company configurable menu permission.
+        perms.ShouldNotContain(p => p.RouteKey == "/admin");
+        var brandsPerm = perms.First(p => p.RouteKey == "/brands");
+        brandsPerm.CanView.ShouldBeFalse();
+        brandsPerm.CanCreate.ShouldBeFalse();
     }
 
     // ── Test 3 ───────────────────────────────────────────────────────────────

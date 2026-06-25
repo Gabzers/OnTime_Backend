@@ -7,7 +7,7 @@ namespace OnTimeCRM.Application.Interfaces.Repositories;
 public interface IVehicleRepository
 {
     Task<IEnumerable<VehicleBrandDto>> GetBrandsAsync(CancellationToken ct = default);
-    Task<PagedResult<VehicleModelListDto>> GetModelsAsync(VehicleSearchParams p, CancellationToken ct = default);
+    Task<PagedResult<VehicleModelListDto>> GetModelsAsync(VehicleSearchParams p, Guid userId, CancellationToken ct = default);
     Task<VehicleModelDto?> GetModelDtoAsync(Guid id, CancellationToken ct = default);
     Task<VehicleBrand?> FindBrandAsync(Guid id, CancellationToken ct = default);
     Task<VehicleModel?> FindModelAsync(Guid id, CancellationToken ct = default);

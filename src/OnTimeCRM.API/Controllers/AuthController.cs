@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using OnTimeCRM.Application.DTOs.Auth;
 using OnTimeCRM.Application.Interfaces;
 using OnTimeCRM.Application.Interfaces.Repositories;
@@ -42,6 +43,7 @@ public class AuthController : ControllerBase
 
     /// <summary>Login</summary>
     [HttpPost("login")]
+    [EnableRateLimiting("login")]
     public async Task<IActionResult> Login(
         [FromBody] LoginRequest request,
         CancellationToken ct)

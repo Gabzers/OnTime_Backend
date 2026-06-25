@@ -47,21 +47,9 @@ public class ClientService : IClientService
     public async Task<ClientDto> CreateAsync(
         Guid userId, CreateClientRequest req, CancellationToken ct = default)
     {
-        ClientStage? initialStage = null;
-
-        if (req.StageId.HasValue)
-        {
-            initialStage = await _stageRepo.FindWithTemplatesAsync(req.StageId.Value, ct);
-            if (initialStage is null || initialStage.UserId != userId)
-                throw new ApiException(ApiErrorCatalog.STAGE_NOT_FOUND);
-        }
-        else
-        {
-            // Default to Order=2 ("Agendar Test Drive"); fall back to first active stage
-            initialStage = await _stageRepo.FindByOrderAsync(userId, 2, ct)
-                        ?? await _stageRepo.FindFirstByUserAsync(userId, ct)
-                        ?? throw new ApiException(ApiErrorCatalog.STAGE_NOT_FOUND);
-        }
+        var initialStage = req.StageId.HasValue
+            ? await ResolveStageAsync(userId, req.StageId.Value, ct)
+            : await ResolveDefaultStageAsync(userId, ct);
 
         var p = req.Proposal;
         var vehicleList = p?.Vehicles?.ToList();
@@ -241,6 +229,61 @@ public class ClientService : IClientService
         };
     }
 
+    private async Task<ClientStage> ResolveStageAsync(Guid userId, Guid stageId, CancellationToken ct)
+    {
+        var stage = await _stageRepo.FindWithTemplatesAsync(stageId, ct);
+        if (stage is null || stage.UserId != userId)
+            throw new ApiException(ApiErrorCatalog.STAGE_NOT_FOUND);
+
+        return stage;
+    }
+
+    private async Task<ClientStage> ResolveDefaultStageAsync(Guid userId, CancellationToken ct)
+    {
+        var stage = await _stageRepo.FindByOrderAsync(userId, 2, ct)
+            ?? await _stageRepo.FindFirstByUserAsync(userId, ct);
+
+        if (stage is not null)
+            return stage;
+
+        SeedDefaultStages(userId);
+        await _uow.SaveChangesAsync(ct);
+
+        return await _stageRepo.FindByOrderAsync(userId, 2, ct)
+            ?? await _stageRepo.FindFirstByUserAsync(userId, ct)
+            ?? throw new ApiException(ApiErrorCatalog.STAGE_NOT_FOUND);
+    }
+
+    private void SeedDefaultStages(Guid userId)
+    {
+        var stages = new[]
+        {
+            new ClientStage { UserId = userId, Name = "Aguarda Agendamento de Visita", Color = "#94A3B8", Order = 0, IsFinal = false, IsWon = false, IsLost = false },
+            new ClientStage { UserId = userId, Name = "Visita Agendada",               Color = "#3B82F6", Order = 1, IsFinal = false, IsWon = false, IsLost = false },
+            new ClientStage { UserId = userId, Name = "Agendar Test Drive",             Color = "#8B5CF6", Order = 2, IsFinal = false, IsWon = false, IsLost = false },
+            new ClientStage { UserId = userId, Name = "Test Drive Marcado",             Color = "#F59E0B", Order = 3, IsFinal = false, IsWon = false, IsLost = false },
+            new ClientStage { UserId = userId, Name = "Aguarda Decisao",               Color = "#EF4444", Order = 4, IsFinal = false, IsWon = false, IsLost = false },
+            new ClientStage { UserId = userId, Name = "Venda",                         Color = "#10B981", Order = 5, IsFinal = true,  IsWon = true,  IsLost = false },
+            new ClientStage { UserId = userId, Name = "Perdido",                       Color = "#6B7280", Order = 6, IsFinal = true,  IsWon = false, IsLost = true  },
+        };
+
+        foreach (var stage in stages)
+            _stageRepo.Add(stage);
+
+        stages[1].Templates = new List<StageNotificationTemplate>
+        {
+            new() { Stage = stages[1], UserId = userId, Title = "Confirmar visita", DaysAfter = 1 }
+        };
+        stages[4].Templates = new List<StageNotificationTemplate>
+        {
+            new() { Stage = stages[4], UserId = userId, Title = "Ligar ao cliente", DaysAfter = 2 }
+        };
+        stages[5].Templates = new List<StageNotificationTemplate>
+        {
+            new() { Stage = stages[5], UserId = userId, Title = "Contacto pos-venda", DaysAfter = 30 }
+        };
+    }
+
     private static string? BuildSnapshot(Proposal? p)
     {
         if (p is null) return null;
@@ -301,7 +344,9 @@ public class ClientService : IClientService
         new(c.Id, c.FullName, c.Phone, c.Email,
             (int)c.LeadSource, (int)c.Temperature,
             c.CurrentStageId, c.CurrentStage?.Name ?? string.Empty,
-            c.CurrentStage?.Color, c.LastInteractionAt, c.CreatedAt);
+            c.CurrentStage?.Color,
+            c.CurrentStage?.IsFinal ?? false, c.CurrentStage?.IsWon ?? false, c.CurrentStage?.IsLost ?? false,
+            c.LastInteractionAt, c.CreatedAt);
 
     private static ClientDto ToDto(Client c) =>
         new(c.Id, c.FullName, c.Email, c.Phone, c.TaxId,

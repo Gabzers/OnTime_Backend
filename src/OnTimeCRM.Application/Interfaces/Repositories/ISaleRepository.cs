@@ -10,6 +10,7 @@ public interface ISaleRepository
 
     Task<PagedResult<SaleListDto>> GetPagedAsync(Guid userId, SaleFilterParams filter, CancellationToken ct = default);
     Task<SaleDto?> GetDtoByIdAsync(Guid id, Guid userId, CancellationToken ct = default);
+    Task<Sale?> FindAsync(Guid id, Guid userId, CancellationToken ct = default);
 
     /// <summary>
     /// Dashboard KPIs + monthly stats + loss reasons + hot deals — all aggregated

@@ -26,11 +26,21 @@ public sealed class SaleRepository : ISaleRepository
             .Include(s => s.Model)
             .Where(s => s.UserId == userId);
 
+        // Range comparison instead of EXTRACT(year/month FROM sold_at) so a plain
+        // btree index on SoldAt can actually be used by the planner.
         if (filter.Year.HasValue)
-            query = query.Where(s => s.SoldAt.Year == filter.Year.Value);
-
-        if (filter.Month.HasValue)
+        {
+            var month = filter.Month ?? 1;
+            var rangeStart = new DateTimeOffset(filter.Year.Value, month, 1, 0, 0, 0, TimeSpan.Zero);
+            var rangeEnd = filter.Month.HasValue
+                ? rangeStart.AddMonths(1)
+                : rangeStart.AddYears(1);
+            query = query.Where(s => s.SoldAt >= rangeStart && s.SoldAt < rangeEnd);
+        }
+        else if (filter.Month.HasValue)
+        {
             query = query.Where(s => s.SoldAt.Month == filter.Month.Value);
+        }
 
         var total = await query.CountAsync(ct);
         var size  = Math.Clamp(filter.PageSize, 1, 50);
@@ -78,6 +88,10 @@ public sealed class SaleRepository : ISaleRepository
             s.Commission,
             s.CreatedAt);
     }
+
+    public async Task<Sale?> FindAsync(Guid id, Guid userId, CancellationToken ct = default) =>
+        await _db.Sales
+            .FirstOrDefaultAsync(x => x.Id == id && x.UserId == userId, ct);
 
     // ── Dashboard — calls PG functions for all aggregations ───────────────
     public async Task<DashboardDto> GetDashboardAsync(Guid userId, CancellationToken ct = default)

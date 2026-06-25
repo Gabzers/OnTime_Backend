@@ -11,12 +11,16 @@ namespace OnTimeCRM.Application.Services;
 /// </summary>
 public class PermissionService : IPermissionService
 {
-    // All application routes that appear in the nav
+    // All application routes that appear in the nav — deliberately excludes "/admin": that's
+    // the cross-tenant platform-admin panel, gated to role 2 only at the policy level
+    // (see Program.cs's "AdminOnly" policy). It can never be a per-company, per-role menu
+    // permission a Manager configures for their own Salespeople — Admin access isn't tenant
+    // data, it's a fixed platform-level constant.
     private static readonly string[] AllRoutes =
     [
         "/dashboard", "/clients", "/proposals", "/sales",
         "/notifications", "/stages", "/vehicles", "/goals",
-        "/friends", "/brands", "/admin", "/access-control",
+        "/friends", "/brands", "/access-control",
     ];
 
     private readonly IAppDbContext _db;
@@ -86,8 +90,8 @@ public class PermissionService : IPermissionService
                 CanDelete = true,
             });
 
-            // Salesperson: no access to admin routes
-            var isAdminRoute = route is "/brands" or "/admin" or "/access-control";
+            // Salesperson: no access to manager-only routes
+            var isAdminRoute = route is "/brands" or "/access-control";
             _db.MenuItemPermissions.Add(new MenuItemPermission
             {
                 Role      = 0,   // Salesperson

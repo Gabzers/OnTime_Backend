@@ -30,7 +30,28 @@ public record FriendProfileDto(
 );
 
 // ── Requests ──────────────────────────────────────────────────────────────────
-public record SendFriendRequestDto(string Email);
+public record SendFriendRequestDto(string? Email = null, Guid? UserId = null);
+
+// ── Sent request (still pending, from the sender's point of view) ────────────
+public record SentFriendRequestDto(
+    Guid FriendshipId,
+    Guid ReceiverId,
+    string ReceiverName,
+    string ReceiverEmail,
+    DateTimeOffset SentAt
+);
+
+// ── Search (autocomplete by name or email) ───────────────────────────────────
+public record FriendSearchResultDto(
+    Guid UserId,
+    string FullName,
+    string Email,
+    string? AvatarUrl,
+    string? BrandName,
+    string? CompanyName,
+    bool AlreadyFriend,
+    bool RequestPending
+);
 
 // ── Public profile settings ──────────────────────────────────────────────────
 public record PublicProfileSettingsDto(

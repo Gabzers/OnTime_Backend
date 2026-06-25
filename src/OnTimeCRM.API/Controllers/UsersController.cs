@@ -44,6 +44,22 @@ public class UsersController : ControllerBase
         return Ok(result);
     }
 
+    [HttpGet("me/vehicle-brands")]
+    public async Task<IActionResult> GetMyVehicleBrands(CancellationToken ct)
+    {
+        var result = await _users.GetMyVehicleBrandsAsync(User.GetUserId(), ct);
+        return Ok(result);
+    }
+
+    [HttpPut("me/vehicle-brands")]
+    public async Task<IActionResult> SetMyVehicleBrands(
+        [FromBody] UpdateUserVehicleBrandsRequest request,
+        CancellationToken ct)
+    {
+        await _users.SetMyVehicleBrandsAsync(User.GetUserId(), request, ct);
+        return NoContent();
+    }
+
     [HttpGet("me/public-profile")]
     public async Task<IActionResult> GetPublicProfile(CancellationToken ct)
     {

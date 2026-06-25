@@ -41,4 +41,5 @@ public class User : BaseEntity
     public ICollection<Notification> Notifications { get; set; } = new List<Notification>();
     public NotificationPreference? NotificationPreference { get; set; }
     public ICollection<UserSubscriptionPayment> SubscriptionPayments { get; set; } = new List<UserSubscriptionPayment>();
+    public ICollection<UserVehicleBrand> SelectedVehicleBrands { get; set; } = new List<UserVehicleBrand>();
 }

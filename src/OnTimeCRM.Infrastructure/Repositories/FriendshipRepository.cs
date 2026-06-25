@@ -52,12 +52,85 @@ public sealed class FriendshipRepository : IFriendshipRepository
             .ToListAsync(ct);
 
         return rows.Select(f =>
-            new FriendRequestDto(f.Id, f.Sender.Id, f.Sender.FullName, f.Sender.Email, f.CreatedAt));
+            new FriendRequestDto(f.Id, f.Sender.Id, f.Sender.FullName, MaskEmail(f.Sender.Email), f.CreatedAt));
+    }
+
+    public async Task<IEnumerable<SentFriendRequestDto>> GetSentRequestsAsync(
+        Guid userId, CancellationToken ct = default)
+    {
+        var rows = await _db.UserFriendships
+            .AsNoTracking()
+            .Include(f => f.Receiver)
+            .Where(f => f.SenderId == userId && f.Status == FriendshipStatus.Pending)
+            .ToListAsync(ct);
+
+        return rows.Select(f =>
+            new SentFriendRequestDto(f.Id, f.Receiver.Id, f.Receiver.FullName, MaskEmail(f.Receiver.Email), f.CreatedAt));
     }
 
     public async Task<User?> FindUserByEmailAsync(
         string email, CancellationToken ct = default) =>
         await _db.Users.FirstOrDefaultAsync(u => u.Email == email && u.IsActive, ct);
+
+    public async Task<User?> FindUserByIdAsync(
+        Guid id, CancellationToken ct = default) =>
+        await _db.Users.FirstOrDefaultAsync(u => u.Id == id && u.IsActive, ct);
+
+    public async Task<IEnumerable<FriendSearchResultDto>> SearchUsersAsync(
+        Guid userId, string query, CancellationToken ct = default)
+    {
+        // A 1-character query against a global, cross-tenant user directory is a scraping
+        // vector (an attacker could enumerate every user a couple of letters at a time).
+        var term = query.Trim().ToLower();
+        if (term.Length < 2) return [];
+
+        var matches = await _db.Users
+            .AsNoTracking()
+            .Include(u => u.Brand)
+            .Include(u => u.Company)
+            .Include(u => u.PublicProfile)
+            .Where(u => u.IsActive && u.Id != userId &&
+                (u.FullName.ToLower().Contains(term) || u.Email.ToLower().Contains(term)))
+            .OrderBy(u => u.FullName)
+            .Take(10)
+            .ToListAsync(ct);
+
+        if (matches.Count == 0) return [];
+
+        var matchIds = matches.Select(u => u.Id).ToList();
+        var friendships = await _db.UserFriendships
+            .AsNoTracking()
+            .Where(f =>
+                (f.SenderId == userId && matchIds.Contains(f.ReceiverId)) ||
+                (f.ReceiverId == userId && matchIds.Contains(f.SenderId)))
+            .ToListAsync(ct);
+
+        return matches.Select(u =>
+        {
+            var fr = friendships.FirstOrDefault(f => f.SenderId == u.Id || f.ReceiverId == u.Id);
+            return new FriendSearchResultDto(
+                u.Id,
+                u.FullName,
+                MaskEmail(u.Email),
+                u.PublicProfile?.AvatarUrl,
+                u.Brand?.Name,
+                u.Company?.Name,
+                AlreadyFriend: fr?.Status == FriendshipStatus.Accepted,
+                RequestPending: fr?.Status == FriendshipStatus.Pending
+            );
+        });
+    }
+
+    /// <summary>
+    /// "j***@stand.pt" — search results are shown to users who aren't friends yet, so the
+    /// full address (a scraping target across the whole platform) is never sent over the wire.
+    /// </summary>
+    private static string MaskEmail(string email)
+    {
+        var at = email.IndexOf('@');
+        if (at <= 0) return "***";
+        return $"{email[0]}***{email[at..]}";
+    }
 
     public async Task<FriendProfileDto?> GetFriendProfileAsync(
         Guid viewerUserId, Guid friendUserId, CancellationToken ct = default)

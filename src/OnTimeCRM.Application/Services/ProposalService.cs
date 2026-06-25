@@ -86,7 +86,7 @@ public class ProposalService : IProposalService
         if (p.UserId != userId)
             throw new ApiException(ApiErrorCatalog.CLIENT_WRONG_USER);
 
-        if (p.Status != ProposalStatus.Active)
+        if (p.Status is not (ProposalStatus.Active or ProposalStatus.Won))
             throw new ApiException(ApiErrorCatalog.PROPOSAL_NOT_ACTIVE);
 
         p.BusinessType          = (BusinessType)req.BusinessType;
@@ -173,8 +173,10 @@ public class ProposalService : IProposalService
                 : ApiErrorCatalog.PROPOSAL_NOT_ACTIVE);
         }
 
-        // Vehicle is required to convert to a sale
-        if (req.ModelId == null && string.IsNullOrWhiteSpace(req.FreeTextModel))
+        var (modelId, freeTextModel) = ResolveSaleVehicle(p, req);
+
+        // Vehicle is required to convert to a sale, but it can be inherited from the proposal
+        if (modelId == null && string.IsNullOrWhiteSpace(freeTextModel))
             throw new ApiException(ApiErrorCatalog.SALE_MISSING_VEHICLE);
 
         // 1. Create Sale — SoldAt MUST come from req.SoldAt, never UtcNow
@@ -183,8 +185,8 @@ public class ProposalService : IProposalService
             ProposalId    = p.Id,
             ClientId      = p.ClientId,
             UserId        = userId,
-            ModelId       = req.ModelId,
-            FreeTextModel = req.FreeTextModel,
+            ModelId       = modelId,
+            FreeTextModel = freeTextModel,
             FinalValue    = req.FinalValue,
             PaymentType   = (PaymentType)req.PaymentType,
             SoldAt        = req.SoldAt,   // business date from user — NEVER UtcNow
@@ -295,6 +297,23 @@ public class ProposalService : IProposalService
         if (vehicles is not null && vehicles.Any(v => v.Price.HasValue))
             return vehicles.Sum(v => v.Price ?? 0m);
         return manualValue;
+    }
+
+    private static (Guid? ModelId, string? FreeTextModel) ResolveSaleVehicle(
+        Proposal proposal,
+        ConvertToSaleRequest req)
+    {
+        if (req.ModelId.HasValue || !string.IsNullOrWhiteSpace(req.FreeTextModel))
+            return (req.ModelId, req.FreeTextModel);
+
+        var proposalVehicle = proposal.Vehicles
+            .OrderByDescending(v => v.IsPreferred)
+            .ThenBy(v => v.CreatedAt)
+            .FirstOrDefault();
+
+        return proposalVehicle is null
+            ? (null, null)
+            : (proposalVehicle.ModelId, proposalVehicle.FreeTextModel);
     }
 
     private void AddVehicles(Proposal proposal, IEnumerable<ProposalVehicleRequest>? vehicles)

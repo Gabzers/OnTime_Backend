@@ -13,6 +13,9 @@ public record ClientListDto(
     Guid CurrentStageId,
     string CurrentStageName,
     string? CurrentStageColor,
+    bool CurrentStageIsFinal,
+    bool CurrentStageIsWon,
+    bool CurrentStageIsLost,
     DateTimeOffset? LastInteractionAt,
     DateTimeOffset CreatedAt
 );

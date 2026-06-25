@@ -1,5 +1,7 @@
 using System.Text;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -54,6 +56,13 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("ManagerOnly", policy =>
         policy.RequireAuthenticatedUser()
               .RequireClaim(System.Security.Claims.ClaimTypes.Role, "1", "2"));
+
+    // Platform Admin (2) only — cross-tenant endpoints (e.g. the admin panel that lists/
+    // disables/edits ALL companies) must never be reachable by a regular Manager (1), who
+    // is a customer of the SaaS, not its operator.
+    options.AddPolicy("AdminOnly", policy =>
+        policy.RequireAuthenticatedUser()
+              .RequireClaim(System.Security.Claims.ClaimTypes.Role, "2"));
 });
 
 // CORS
@@ -97,6 +106,31 @@ builder.Services.AddSwaggerGen(c =>
 // Health checks
 builder.Services.AddHealthChecks();
 
+// Rate limiting — login is the brute-force target. Partitioned by client IP (not a single
+// shared counter) so one attacker can't lock out every other user; queueing is disabled so
+// excess requests fail fast with 429 instead of piling up.
+// Limit is configurable so the integration test suite (many sequential logins through one
+// shared TestServer/IP) can raise it instead of tripping on itself — see appsettings used by
+// TestWebAppFactory, which sets this very high.
+var loginPermitPerMinute = builder.Configuration.GetValue<int?>("RateLimiting:LoginPermitPerMinute") ?? 5;
+builder.Services.AddRateLimiter(options =>
+{
+    options.AddPolicy("login", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = loginPermitPerMinute,
+                Window      = TimeSpan.FromMinutes(1),
+                QueueLimit  = 0,
+            }));
+    options.OnRejected = (context, ct) =>
+    {
+        context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+        return new ValueTask();
+    };
+});
+
 // ── App pipeline ──────────────────────────────────────────────────────────────
 var app = builder.Build();
 
@@ -110,6 +144,7 @@ app.MapScalarApiReference();
 app.UseMiddleware<ErrorHandlingMiddleware>();
 
 app.UseCors();
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseMiddleware<SubscriptionAccessMiddleware>();
 app.UseAuthorization();

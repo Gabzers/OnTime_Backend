@@ -55,6 +55,7 @@ public sealed class ProposalRepository : IProposalRepository
 
     public Task<Proposal?> FindWithClientAndStageAsync(Guid id, CancellationToken ct = default) =>
         _db.Proposals
+            .Include(p => p.Vehicles)
             .Include(p => p.Client)
                 .ThenInclude(c => c.CurrentStage)
             .FirstOrDefaultAsync(p => p.Id == id, ct);

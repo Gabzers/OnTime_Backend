@@ -21,8 +21,8 @@ public class VehicleService : IVehicleService
         _repo.GetBrandsAsync(ct);
 
     public Task<PagedResult<VehicleModelListDto>> GetModelsAsync(
-        VehicleSearchParams p, CancellationToken ct = default) =>
-        _repo.GetModelsAsync(p, ct);
+        VehicleSearchParams p, Guid userId, CancellationToken ct = default) =>
+        _repo.GetModelsAsync(p, userId, ct);
 
     public async Task<VehicleModelDto> GetModelByIdAsync(Guid id, CancellationToken ct = default)
     {
@@ -99,7 +99,16 @@ public class VehicleService : IVehicleService
                     v.Id, v.Name,
                     ColorArrayHelper.Parse(v.ExternalColors),
                     ColorArrayHelper.Parse(v.InternalColors)))
-                .ToList());
+                .ToList(),
+            model.IsActive);
+    }
+
+    public async Task SetModelActiveAsync(Guid id, bool isActive, CancellationToken ct = default)
+    {
+        var model = await _repo.FindModelAsync(id, ct)
+            ?? throw new ApiException(ApiErrorCatalog.VEHICLE_MODEL_NOT_FOUND);
+        model.IsActive = isActive;
+        await _uow.SaveChangesAsync(ct);
     }
 
     public async Task DeleteModelAsync(Guid id, CancellationToken ct = default)

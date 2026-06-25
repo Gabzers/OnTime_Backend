@@ -17,4 +17,7 @@ public interface IUserService
     Task<IEnumerable<UserListDto>> GetByBrandAsync(Guid brandId, CancellationToken ct = default);
     Task<UserDto> GetByIdAsync(Guid userId, Guid brandId, CancellationToken ct = default);
     Task<UserDto> SetActiveAsync(Guid userId, Guid brandId, SetUserActiveRequest request, CancellationToken ct = default);
+
+    Task<UserVehicleBrandsDto> GetMyVehicleBrandsAsync(Guid userId, CancellationToken ct = default);
+    Task SetMyVehicleBrandsAsync(Guid userId, UpdateUserVehicleBrandsRequest request, CancellationToken ct = default);
 }

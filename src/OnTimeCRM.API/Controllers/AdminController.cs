@@ -8,11 +8,13 @@ using OnTimeCRM.Application.Interfaces;
 namespace OnTimeCRM.API.Controllers;
 
 /// <summary>
-/// Manager-only admin panel for managing companies and their brands.
+/// Platform-admin panel for managing ALL companies and their brands across the whole SaaS —
+/// deliberately NOT manager-accessible: a Manager is a customer, not the operator, and this
+/// panel can list, disable, or edit any other company's data.
 /// </summary>
 [ApiController]
 [Route("api/admin")]
-[Authorize(Policy = "ManagerOnly")]
+[Authorize(Policy = "AdminOnly")]
 public class AdminController : ControllerBase
 {
     private readonly IAdminService _admin;

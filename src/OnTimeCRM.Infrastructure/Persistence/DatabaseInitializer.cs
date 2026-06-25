@@ -50,30 +50,85 @@ public static class DatabaseInitializer
         // Apply all PostgreSQL functions
         foreach (var sql in DatabaseFunctions.All)
             await db.Database.ExecuteSqlRawAsync(sql, ct);
+
+        // One-time data cleanup, safe to re-run every startup: "/admin" used to be seeded as a
+        // per-company, per-role configurable menu permission (PermissionService.AllRoutes).
+        // It no longer is — cross-tenant platform-admin access is now gated to role==2 only at
+        // the policy level, never a tenant-configurable permission — so any row seeded before
+        // that change is stale and would otherwise keep showing a misleading "/admin" toggle in
+        // the Access Control screen forever (EnsureCreated never re-seeds existing rows).
+        await db.Database.ExecuteSqlRawAsync(
+            "DELETE FROM menu_item_permissions WHERE route_key = '/admin'", ct);
     }
 
-    // ── Compares EF model entity tables against information_schema ────────
+    // ── Compares EF model entity tables AND columns against information_schema ─────────────
+    // Generic check — every table AND every column the current EF model expects must exist.
+    // This replaces a single hardcoded "sentinel column" that only caught drift if that one
+    // specific column happened to be the thing that changed; a column added to any other
+    // entity (e.g. UserGoal.ShowOnDashboard) silently passed the old check and caused a 500
+    // at runtime instead of triggering the drop+recreate this whole mechanism exists for.
     private static async Task<bool> IsSchemaCurrentAsync(AppDbContext db, CancellationToken ct)
     {
-        var existing = await db.Database
+        var existingTables = await db.Database
             .SqlQuery<string>($"SELECT table_name::text FROM information_schema.tables WHERE table_schema = 'public'")
             .ToListAsync(ct);
+        var existingTableSet = existingTables.ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        var existingSet = existing.ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-        bool allTablesExist = db.Model.GetEntityTypes()
+        var expectedTables = db.Model.GetEntityTypes()
             .Select(e => e.GetTableName())
             .Where(t => t is not null)
-            .All(t => existingSet.Contains(t!));
+            .Select(t => t!)
+            .Distinct()
+            .ToList();
 
-        if (!allTablesExist) return false;
+        if (!expectedTables.All(t => existingTableSet.Contains(t))) return false;
 
-        // Also check for new columns added after the DB was first created.
-        // If any sentinel new column is missing, the schema is stale — drop+recreate.
-        var newClientColCount = await db.Database
-            .SqlQuery<int>($"SELECT COUNT(1)::int AS \"Value\" FROM information_schema.columns WHERE table_name='notification_preferences' AND column_name='new_client_notification_days_after'")
-            .FirstOrDefaultAsync(ct);
+        // Snake-case naming convention is active (see AppDbContext), so the SqlQuery<T> record
+        // properties below must match information_schema's own snake_case column names exactly
+        // — no aliasing needed/wanted.
+        var existingColumns = await db.Database
+            .SqlQuery<TableColumn>(
+                $"SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = 'public'")
+            .ToListAsync(ct);
+        var existingColumnSet = existingColumns
+            .Select(c => $"{c.TableName}.{c.ColumnName}".ToLowerInvariant())
+            .ToHashSet();
 
-        return newClientColCount > 0;
+        foreach (var entityType in db.Model.GetEntityTypes())
+        {
+            var tableName = entityType.GetTableName();
+            if (tableName is null) continue;
+
+            foreach (var property in entityType.GetProperties())
+            {
+                var columnName = property.GetColumnName();
+                if (columnName is null) continue;
+
+                var key = $"{tableName}.{columnName}".ToLowerInvariant();
+                if (!existingColumnSet.Contains(key)) return false;
+            }
+        }
+
+        // EnsureCreated only ever CREATEs — it never ALTERs an existing table, so an index
+        // added to the model after the DB already exists would otherwise silently never be
+        // applied. Treat a missing expected index the same as a missing column: drift.
+        var existingIndexNames = (await db.Database
+            .SqlQuery<string>($"SELECT indexname::text FROM pg_indexes WHERE schemaname = 'public'")
+            .ToListAsync(ct))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var entityType in db.Model.GetEntityTypes())
+        {
+            foreach (var index in entityType.GetIndexes())
+            {
+                var indexName = index.GetDatabaseName();
+                if (indexName is null) continue;
+                if (!existingIndexNames.Contains(indexName)) return false;
+            }
+        }
+
+        return true;
     }
+
+    private record TableColumn(string TableName, string ColumnName);
 }

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using OnTimeCRM.Application.Common;
 using OnTimeCRM.Application.DTOs.Vehicles;
 using OnTimeCRM.Application.Interfaces;
 
@@ -48,7 +49,14 @@ public class VehiclesController : ControllerBase
         [FromQuery] VehicleSearchParams p,
         CancellationToken ct)
     {
-        var result = await _vehicles.GetModelsAsync(p, ct);
+        var result = await _vehicles.GetModelsAsync(p, User.GetUserId(), ct);
+        return Ok(result);
+    }
+
+    [HttpGet("models/{id:guid}")]
+    public async Task<IActionResult> GetModelById(Guid id, CancellationToken ct)
+    {
+        var result = await _vehicles.GetModelByIdAsync(id, ct);
         return Ok(result);
     }
 
@@ -71,6 +79,17 @@ public class VehiclesController : ControllerBase
     {
         var result = await _vehicles.UpdateModelAsync(id, request, ct);
         return Ok(result);
+    }
+
+    [HttpPatch("models/{id:guid}/active")]
+    [Authorize(Policy = "ManagerOnly")]
+    public async Task<IActionResult> SetModelActive(
+        Guid id,
+        [FromBody] SetVehicleModelActiveRequest request,
+        CancellationToken ct)
+    {
+        await _vehicles.SetModelActiveAsync(id, request.IsActive, ct);
+        return NoContent();
     }
 
     [HttpDelete("models/{id:guid}")]

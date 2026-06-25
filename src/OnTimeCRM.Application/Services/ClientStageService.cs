@@ -53,9 +53,31 @@ public class ClientStageService : IClientStageService
         if (stage.UserId != userId)
             throw new ApiException(ApiErrorCatalog.STAGE_WRONG_USER);
 
+        if (req.IsWon && req.IsLost)
+            throw new ApiException(ApiErrorCatalog.STAGE_WON_AND_LOST);
+
         stage.Name     = req.Name;
         stage.Color    = req.Color;
         stage.IsActive = req.IsActive;
+        stage.IsWon    = req.IsWon;
+        stage.IsLost   = req.IsLost;
+        stage.IsFinal  = req.IsFinal || req.IsWon || req.IsLost;
+
+        // Only one stage can be the Won stage, and only one the Lost stage — demote the
+        // previous holder so ConvertToSale/MarkLost always have a single, unambiguous target.
+        if (req.IsWon)
+        {
+            var previousWon = await _repo.FindWonStageAsync(userId, ct);
+            if (previousWon is not null && previousWon.Id != stage.Id)
+                previousWon.IsWon = false;
+        }
+
+        if (req.IsLost)
+        {
+            var previousLost = await _repo.FindLostStageAsync(userId, ct);
+            if (previousLost is not null && previousLost.Id != stage.Id)
+                previousLost.IsLost = false;
+        }
 
         await _uow.SaveChangesAsync(ct);
         return ToDto(stage);

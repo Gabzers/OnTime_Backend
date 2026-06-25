@@ -13,6 +13,7 @@ public interface ISaleService
 {
     Task<PagedResult<SaleListDto>> GetPagedAsync(Guid userId, SaleFilterParams filter, CancellationToken ct = default);
     Task<SaleDto> GetByIdAsync(Guid id, Guid userId, CancellationToken ct = default);
+    Task<SaleDto> UpdateAsync(Guid id, Guid userId, UpdateSaleRequest request, CancellationToken ct = default);
     Task<DashboardDto> GetDashboardAsync(Guid userId, CancellationToken ct = default);
 }
 
@@ -42,12 +43,13 @@ public interface IClientStageService
 public interface IVehicleService
 {
     Task<IEnumerable<VehicleBrandDto>> GetBrandsAsync(CancellationToken ct = default);
-    Task<PagedResult<VehicleModelListDto>> GetModelsAsync(VehicleSearchParams p, CancellationToken ct = default);
+    Task<PagedResult<VehicleModelListDto>> GetModelsAsync(VehicleSearchParams p, Guid userId, CancellationToken ct = default);
     Task<VehicleModelDto> GetModelByIdAsync(Guid id, CancellationToken ct = default);
     Task<VehicleBrandDto> CreateBrandAsync(CreateVehicleBrandRequest request, CancellationToken ct = default);
     Task DeleteBrandAsync(Guid id, CancellationToken ct = default);
     Task<VehicleModelDto> CreateModelAsync(CreateVehicleModelRequest request, CancellationToken ct = default);
     Task<VehicleModelDto> UpdateModelAsync(Guid id, UpdateVehicleModelRequest request, CancellationToken ct = default);
+    Task SetModelActiveAsync(Guid id, bool isActive, CancellationToken ct = default);
     Task DeleteModelAsync(Guid id, CancellationToken ct = default);
 
     // Versions

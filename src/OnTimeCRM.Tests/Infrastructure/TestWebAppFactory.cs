@@ -77,10 +77,17 @@ public class TestWebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
     {
         await _respawner.ResetAsync(_respawnConnection);
 
-        // Re-seed global vehicle brands after reset
-        if (!await Db.VehicleBrands.AnyAsync())
+        // vehicle_brands is excluded from Respawn (global seed data), but vehicle_models is not,
+        // so it gets wiped every reset — reseed brands+models the first time, models-only after.
+        var dongfeng = await Db.VehicleBrands.FirstOrDefaultAsync(b => b.Name == "Dongfeng");
+        var voyah = await Db.VehicleBrands.FirstOrDefaultAsync(b => b.Name == "Voyah");
+        if (dongfeng is null || voyah is null)
         {
             await SeedVehicleBrandsAsync();
+        }
+        else if (!await Db.VehicleModels.AnyAsync())
+        {
+            await SeedVehicleModelsAsync(dongfeng, voyah);
         }
 
         // Clear the DbContext's local cache so it re-reads from DB
@@ -91,11 +98,18 @@ public class TestWebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
     {
         var dongfeng = new VehicleBrand { Name = "Dongfeng" };
         Db.VehicleBrands.Add(dongfeng);
-        foreach (var m in new[] { "AX7", "AX4", "AX3", "T5 EVO", "Free Line" })
-            Db.VehicleModels.Add(new VehicleModel { Brand = dongfeng, Name = m });
 
         var voyah = new VehicleBrand { Name = "Voyah" };
         Db.VehicleBrands.Add(voyah);
+
+        await SeedVehicleModelsAsync(dongfeng, voyah);
+    }
+
+    private async Task SeedVehicleModelsAsync(VehicleBrand dongfeng, VehicleBrand voyah)
+    {
+        foreach (var m in new[] { "AX7", "AX4", "AX3", "T5 EVO", "Free Line" })
+            Db.VehicleModels.Add(new VehicleModel { Brand = dongfeng, Name = m });
+
         foreach (var m in new[] { "Free", "Dream", "Passion", "Range-E" })
             Db.VehicleModels.Add(new VehicleModel { Brand = voyah, Name = m });
 
@@ -135,6 +149,12 @@ public class TestWebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
         builder.UseSetting("Ifthenpay:MultibancoKey", "MB_TEST_KEY");
         builder.UseSetting("Ifthenpay:Entity", "11111");
         builder.UseSetting("Ifthenpay:CallbackSecretKey", "callback_test_secret");
+
+        // The whole suite shares one TestServer/IP through this factory, so the production
+        // login rate limit (5/min) would trip across unrelated tests. Raise it here instead of
+        // disabling the limiter outright, so RateLimitingFlowTests can still verify the real
+        // limit by passing its own low override per-request via a dedicated factory if needed.
+        builder.UseSetting("RateLimiting:LoginPermitPerMinute", "100000");
     }
 
     async Task IAsyncLifetime.DisposeAsync()

@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using Microsoft.EntityFrameworkCore;
 using Shouldly;
+using OnTimeCRM.Application.DTOs.Clients;
 using OnTimeCRM.Application.DTOs.Proposals;
 using OnTimeCRM.Application.DTOs.Sales;
 using OnTimeCRM.Domain.Enums;
@@ -78,6 +79,70 @@ public class ProposalSaleFlowTests : IAsyncLifetime
             .FirstOrDefaultAsync(n => n.ClientId == clientId && n.Trigger == NotificationTrigger.SaleClosed);
         notification.ShouldNotBeNull();
         notification!.ScheduledFor.Date.ShouldBe(DateTime.UtcNow.AddDays(30).Date);
+    }
+
+    [Fact]
+    public async Task ConvertProposalToSale_UsesProposalVehicleWhenRequestOmitsVehicle()
+    {
+        // ARRANGE
+        var auth = await TestHelpers.RegisterManagerAsync(_factory.Client);
+        await TestHelpers.ActivateSubscriptionDirectAsync(_factory.Db, auth.UserId);
+
+        var model = await _factory.Db.VehicleModels
+            .AsNoTracking()
+            .Include(m => m.Brand)
+            .FirstAsync(m => m.IsActive);
+
+        var stageId = await TestHelpers.GetFirstStageIdAsync(_factory.Client, auth.Token);
+        var createReq = new CreateClientRequest(
+            FullName: "Model Backed Client",
+            Email: "model-backed@example.com",
+            Phone: "351912345678",
+            TaxId: null,
+            LeadSource: (int)LeadSource.WalkIn,
+            StageId: stageId,
+            Proposal: new CreateProposalReq(
+                BusinessType: (int)BusinessType.DirectPurchase,
+                PaymentType: (int)PaymentType.Cash,
+                ProposalValue: 32000m,
+                ProposalDate: DateTimeOffset.UtcNow,
+                Vehicles: [new ProposalVehicleRequest(model.Id, null, true)]
+            )
+        );
+
+        var createResp = await _factory.Client.PostAsJsonAsync("/api/clients", createReq, auth.Token);
+        createResp.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var createdClient = await createResp.Content.ReadFromJsonAsync<ClientDto>();
+        createdClient.ShouldNotBeNull();
+
+        _factory.Db.ChangeTracker.Clear();
+        var proposalId = await _factory.Db.Proposals
+            .Where(p => p.ClientId == createdClient!.Id)
+            .Select(p => p.Id)
+            .FirstAsync();
+
+        var convertReq = new ConvertToSaleRequest(
+            SoldAt: DateTimeOffset.UtcNow.AddDays(-1),
+            FinalValue: 32000m,
+            PaymentType: (int)PaymentType.Cash,
+            ModelId: null,
+            FreeTextModel: null,
+            Plate: null,
+            Chassis: null,
+            Obs: null
+        );
+
+        // ACT
+        var response = await _factory.Client.PostAsJsonAsync(
+            $"/api/proposals/{proposalId}/convert", convertReq, auth.Token);
+
+        // ASSERT
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var sale = await response.Content.ReadFromJsonAsync<SaleDto>();
+        sale.ShouldNotBeNull();
+        sale!.ModelId.ShouldBe(model.Id);
+        sale.ModelName.ShouldBe($"{model.Brand.Name} {model.Name}");
     }
 
     // ── Test 2 ───────────────────────────────────────────────────────────────

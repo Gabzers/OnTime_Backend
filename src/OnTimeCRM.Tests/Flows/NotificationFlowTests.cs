@@ -328,4 +328,45 @@ public class NotificationFlowTests : IAsyncLifetime
         notification.ShouldNotBeNull();
         notification!.ScheduledFor.Date.ShouldBe(DateTime.UtcNow.AddDays(7).Date);
     }
+
+    // ── Test 9 ───────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task User_CannotMarkDoneSnoozeOrIgnore_AnotherUsersNotification()
+    {
+        var owner = await TestHelpers.RegisterManagerAsync(_factory.Client);
+        await TestHelpers.ActivateSubscriptionDirectAsync(_factory.Db, owner.UserId);
+        var stranger = await TestHelpers.RegisterManagerAsync(_factory.Client);
+        await TestHelpers.ActivateSubscriptionDirectAsync(_factory.Db, stranger.UserId);
+
+        var notification = new OnTimeCRM.Domain.Entities.Notification
+        {
+            UserId = owner.UserId,
+            Title = "Owner's notification",
+            ScheduledFor = new DateTimeOffset(DateTimeOffset.UtcNow.UtcDateTime.Date, TimeSpan.Zero),
+            Status = NotificationStatus.Pending,
+            Trigger = NotificationTrigger.Manual
+        };
+        _factory.Db.Notifications.Add(notification);
+        await _factory.Db.SaveChangesAsync();
+        _factory.Db.ChangeTracker.Clear();
+
+        var doneResp = await _factory.Client.PatchAsJsonAsync<object?>(
+            $"/api/notifications/{notification.Id}/done", null, stranger.Token);
+        doneResp.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+
+        var snoozeResp = await _factory.Client.PatchAsJsonAsync(
+            $"/api/notifications/{notification.Id}/snooze",
+            new SnoozeNotificationRequest(SnoozedUntil: DateTimeOffset.UtcNow.AddDays(1)), stranger.Token);
+        snoozeResp.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+
+        var ignoreResp = await _factory.Client.PatchAsJsonAsync<object?>(
+            $"/api/notifications/{notification.Id}/ignore", null, stranger.Token);
+        ignoreResp.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+
+        // Confirm it's untouched — still pending, never marked done by the stranger's attempt.
+        _factory.Db.ChangeTracker.Clear();
+        var notifDb = await _factory.Db.Notifications.FindAsync(notification.Id);
+        notifDb!.Status.ShouldBe(NotificationStatus.Pending);
+    }
 }

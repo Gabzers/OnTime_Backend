@@ -11,7 +11,8 @@ public record ClientStageDto(
     bool IsWon,
     bool IsLost,
     bool IsActive,
-    IEnumerable<StageTemplateDto> Templates
+    IEnumerable<StageTemplateDto> Templates,
+    int ClientCount = 0
 );
 
 public record StageTemplateDto(
@@ -31,7 +32,10 @@ public record CreateStageRequest(
 public record UpdateStageRequest(
     [Required] string Name,
     string? Color,
-    bool IsActive
+    bool IsActive,
+    bool IsFinal = false,
+    bool IsWon = false,
+    bool IsLost = false
 );
 
 public record ReorderStagesRequest(IEnumerable<StageOrderItem> Items);

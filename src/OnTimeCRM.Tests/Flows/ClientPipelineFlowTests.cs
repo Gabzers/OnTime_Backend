@@ -6,6 +6,7 @@ using Shouldly;
 using OnTimeCRM.Application.DTOs.Clients;
 using OnTimeCRM.Application.DTOs.Stages;
 using OnTimeCRM.Application.DTOs.Proposals;
+using OnTimeCRM.Application.DTOs.Sales;
 using OnTimeCRM.Domain.Enums;
 using OnTimeCRM.Tests.Infrastructure;
 
@@ -308,5 +309,40 @@ public class ClientPipelineFlowTests : IAsyncLifetime
         // ASSERT — Manager sees BOTH clients
         list!.Items.ShouldContain(c => c.Id == sp1ClientId);
         list.Items.ShouldContain(c => c.Id == sp2ClientId);
+    }
+
+    // ── Test 8 ───────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task ClientList_FlagsCurrentStageIsWon_AfterProposalConvertedToSale()
+    {
+        // ARRANGE
+        var auth = await TestHelpers.RegisterManagerAsync(_factory.Client);
+        await TestHelpers.ActivateSubscriptionDirectAsync(_factory.Db, auth.UserId);
+        var (clientId, proposalId) = await TestHelpers.CreateClientWithProposalAsync(
+            _factory.Client, auth.Token, db: _factory.Db);
+
+        var listBefore = await _factory.Client.GetFromJsonAsync<PagedResult<ClientListDto>>(
+            "/api/clients", auth.Token);
+        var before = listBefore!.Items.First(c => c.Id == clientId);
+        before.CurrentStageIsWon.ShouldBeFalse();
+
+        // ACT — convert the proposal to a sale (client moves to the Won stage)
+        var convertReq = new ConvertToSaleRequest(
+            SoldAt: DateTimeOffset.UtcNow,
+            FinalValue: 20000m,
+            ModelId: null,
+            FreeTextModel: "Test Vehicle");
+        var convertResp = await _factory.Client.PostAsJsonAsync(
+            $"/api/proposals/{proposalId}/convert", convertReq, auth.Token);
+        convertResp.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        // ASSERT — the client list now flags this client's stage as Won (not just Hot temperature)
+        var listAfter = await _factory.Client.GetFromJsonAsync<PagedResult<ClientListDto>>(
+            "/api/clients", auth.Token);
+        var after = listAfter!.Items.First(c => c.Id == clientId);
+        after.CurrentStageIsWon.ShouldBeTrue();
+        after.CurrentStageIsFinal.ShouldBeTrue();
+        after.CurrentStageIsLost.ShouldBeFalse();
     }
 }

@@ -35,5 +35,9 @@ public class NotificationConfiguration : IEntityTypeConfiguration<Notification>
             .HasForeignKey(x => x.SaleId)
             .OnDelete(DeleteBehavior.Restrict)
             .IsRequired(false);
+
+        // Covers the dashboard's overdue-count query (UserId + Status + ScheduledFor range)
+        // and the notifications list's OrderByDescending(ScheduledFor).
+        builder.HasIndex(x => new { x.UserId, x.Status, x.ScheduledFor });
     }
 }

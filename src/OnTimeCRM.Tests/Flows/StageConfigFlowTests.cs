@@ -199,4 +199,143 @@ public class StageConfigFlowTests : IAsyncLifetime
         notification!.ScheduledFor.Date.ShouldBe(DateTime.UtcNow.AddDays(5).Date);
         notification.Title.ShouldBe("Test Drive Follow-up");
     }
+
+    // ── Test 7 ───────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task UpdateStage_PersistsIsActiveAndIsFinalFlags()
+    {
+        // ARRANGE
+        var auth = await TestHelpers.RegisterManagerAsync(_factory.Client);
+        await TestHelpers.ActivateSubscriptionDirectAsync(_factory.Db, auth.UserId);
+
+        var stages = (await _factory.Client.GetFromJsonAsync<IEnumerable<ClientStageDto>>(
+            "/api/stages", auth.Token))!.OrderBy(s => s.Order).ToList();
+        var stage = stages.First(s => !s.IsFinal);
+
+        // ACT — deactivate the stage
+        var updateReq = new UpdateStageRequest(Name: stage.Name, Color: stage.Color, IsActive: false);
+        var resp = await _factory.Client.PutAsJsonAsync($"/api/stages/{stage.Id}", updateReq, auth.Token);
+
+        // ASSERT
+        resp.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var dto = await resp.Content.ReadFromJsonAsync<ClientStageDto>();
+        dto!.IsActive.ShouldBeFalse();
+
+        _factory.Db.ChangeTracker.Clear();
+        var stageDb = await _factory.Db.ClientStages.FindAsync(stage.Id);
+        stageDb!.IsActive.ShouldBeFalse();
+    }
+
+    // ── Test 8 ───────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task UpdateStage_SettingIsWon_DemotesThePreviousWonStage()
+    {
+        // ARRANGE
+        var auth = await TestHelpers.RegisterManagerAsync(_factory.Client);
+        await TestHelpers.ActivateSubscriptionDirectAsync(_factory.Db, auth.UserId);
+
+        var stages = (await _factory.Client.GetFromJsonAsync<IEnumerable<ClientStageDto>>(
+            "/api/stages", auth.Token))!.OrderBy(s => s.Order).ToList();
+        var originalWon = stages.First(s => s.IsWon);
+        var candidate = stages.First(s => !s.IsFinal);
+
+        // ACT — promote a different stage to Won
+        var updateReq = new UpdateStageRequest(
+            Name: candidate.Name, Color: candidate.Color, IsActive: true, IsFinal: true, IsWon: true);
+        var resp = await _factory.Client.PutAsJsonAsync($"/api/stages/{candidate.Id}", updateReq, auth.Token);
+        resp.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        // ASSERT — only the new stage is Won; the old one was demoted
+        var allStages = await _factory.Client.GetFromJsonAsync<IEnumerable<ClientStageDto>>(
+            "/api/stages", auth.Token);
+        allStages!.Count(s => s.IsWon).ShouldBe(1);
+        allStages.Single(s => s.IsWon).Id.ShouldBe(candidate.Id);
+        allStages.First(s => s.Id == originalWon.Id).IsWon.ShouldBeFalse();
+    }
+
+    // ── Test 9 ───────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task UpdateStage_SettingIsWonAndIsLostTogether_Returns422()
+    {
+        // ARRANGE
+        var auth = await TestHelpers.RegisterManagerAsync(_factory.Client);
+        await TestHelpers.ActivateSubscriptionDirectAsync(_factory.Db, auth.UserId);
+
+        var stages = (await _factory.Client.GetFromJsonAsync<IEnumerable<ClientStageDto>>(
+            "/api/stages", auth.Token))!.OrderBy(s => s.Order).ToList();
+        var candidate = stages.First(s => !s.IsFinal);
+
+        // ACT
+        var updateReq = new UpdateStageRequest(
+            Name: candidate.Name, Color: candidate.Color, IsActive: true, IsWon: true, IsLost: true);
+        var resp = await _factory.Client.PutAsJsonAsync($"/api/stages/{candidate.Id}", updateReq, auth.Token);
+
+        // ASSERT
+        resp.StatusCode.ShouldBe(HttpStatusCode.UnprocessableEntity);
+        var body = await resp.Content.ReadAsStringAsync();
+        body.ShouldContain("STAGE_WON_AND_LOST");
+    }
+
+    // ── Test 10 ──────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task GetStages_ReturnsClientCountPerStage()
+    {
+        // ARRANGE
+        var auth = await TestHelpers.RegisterManagerAsync(_factory.Client);
+        await TestHelpers.ActivateSubscriptionDirectAsync(_factory.Db, auth.UserId);
+
+        var stagesBefore = (await _factory.Client.GetFromJsonAsync<IEnumerable<ClientStageDto>>(
+            "/api/stages", auth.Token))!.OrderBy(s => s.Order).ToList();
+        var targetStage = stagesBefore.First(s => !s.IsFinal);
+        targetStage.ClientCount.ShouldBe(0);
+
+        await TestHelpers.CreateClientWithProposalAsync(
+            _factory.Client, auth.Token, stageId: targetStage.Id, db: _factory.Db);
+
+        // ACT
+        var stagesAfter = (await _factory.Client.GetFromJsonAsync<IEnumerable<ClientStageDto>>(
+            "/api/stages", auth.Token))!.OrderBy(s => s.Order).ToList();
+
+        // ASSERT
+        stagesAfter.First(s => s.Id == targetStage.Id).ClientCount.ShouldBe(1);
+    }
+
+    // ── Test 8 ───────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task User_CannotUpdateDeleteOrAddTemplates_OnAnotherUsersStage()
+    {
+        var owner = await TestHelpers.RegisterManagerAsync(_factory.Client);
+        await TestHelpers.ActivateSubscriptionDirectAsync(_factory.Db, owner.UserId);
+        var stranger = await TestHelpers.RegisterManagerAsync(_factory.Client);
+        await TestHelpers.ActivateSubscriptionDirectAsync(_factory.Db, stranger.UserId);
+
+        var ownerStages = await _factory.Client.GetFromJsonAsync<IEnumerable<ClientStageDto>>(
+            "/api/stages", owner.Token);
+        var targetStage = ownerStages!.First();
+
+        var updateResp = await _factory.Client.PutAsJsonAsync(
+            $"/api/stages/{targetStage.Id}",
+            new UpdateStageRequest(Name: "Hijacked", Color: "#000000", IsActive: true, IsFinal: false, IsWon: false, IsLost: false),
+            stranger.Token);
+        updateResp.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+
+        var addTemplateResp = await _factory.Client.PostAsJsonAsync(
+            $"/api/stages/{targetStage.Id}/templates",
+            new CreateStageTemplateRequest(Title: "Injected", DaysAfter: 0),
+            stranger.Token);
+        addTemplateResp.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+
+        var deleteResp = await _factory.Client.DeleteAsync($"/api/stages/{targetStage.Id}", stranger.Token);
+        deleteResp.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+
+        // Confirm it's untouched — the owner still sees their original stage name.
+        var stagesAfter = await _factory.Client.GetFromJsonAsync<IEnumerable<ClientStageDto>>(
+            "/api/stages", owner.Token);
+        stagesAfter!.First(s => s.Id == targetStage.Id).Name.ShouldBe(targetStage.Name);
+    }
 }

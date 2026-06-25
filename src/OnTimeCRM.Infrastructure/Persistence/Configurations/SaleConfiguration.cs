@@ -39,5 +39,8 @@ public class SaleConfiguration : IEntityTypeConfiguration<Sale>
             .HasForeignKey(x => x.ModelId)
             .OnDelete(DeleteBehavior.Restrict)
             .IsRequired(false);
+
+        // Sales lists are always ordered/filtered by SoldAt (date-range filters, OrderByDescending).
+        builder.HasIndex(x => x.SoldAt);
     }
 }

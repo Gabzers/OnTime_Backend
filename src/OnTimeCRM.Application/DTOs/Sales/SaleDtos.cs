@@ -33,6 +33,18 @@ public record SaleListDto(
     decimal? Commission = null
 );
 
+public record UpdateSaleRequest(
+    decimal? FinalValue = null,
+    int? PaymentType = null,
+    DateTimeOffset? SoldAt = null,
+    Guid? ModelId = null,
+    string? FreeTextModel = null,
+    string? Plate = null,
+    string? Chassis = null,
+    string? Obs = null,
+    decimal? Commission = null
+);
+
 public record ClientSaleHistoryDto(
     Guid Id,
     string? ModelName,

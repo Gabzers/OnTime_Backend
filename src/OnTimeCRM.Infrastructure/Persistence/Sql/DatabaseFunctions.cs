@@ -38,6 +38,9 @@ public static class DatabaseFunctions
             current_stage_id    UUID,
             stage_name          TEXT,
             stage_color         TEXT,
+            stage_is_final      BOOLEAN,
+            stage_is_won        BOOLEAN,
+            stage_is_lost       BOOLEAN,
             last_interaction_at TIMESTAMPTZ,
             created_at          TIMESTAMPTZ,
             total_count         BIGINT)
@@ -52,6 +55,9 @@ public static class DatabaseFunctions
                 c.current_stage_id,
                 cs.name::TEXT  AS stage_name,
                 cs.color::TEXT AS stage_color,
+                cs.is_final,
+                cs.is_won,
+                cs.is_lost,
                 c.last_interaction_at,
                 c.created_at,
                 COUNT(*) OVER()::BIGINT AS total_count

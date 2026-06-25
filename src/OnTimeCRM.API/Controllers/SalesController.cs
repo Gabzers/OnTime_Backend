@@ -31,6 +31,16 @@ public class SalesController : ControllerBase
         return Ok(result);
     }
 
+    [HttpPut("sales/{id:guid}")]
+    public async Task<IActionResult> Update(
+        Guid id,
+        [FromBody] UpdateSaleRequest request,
+        CancellationToken ct)
+    {
+        var result = await _sales.UpdateAsync(id, User.GetUserId(), request, ct);
+        return Ok(result);
+    }
+
     [HttpGet("dashboard")]
     public async Task<IActionResult> GetDashboard(CancellationToken ct)
     {

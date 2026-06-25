@@ -35,6 +35,9 @@ public record UpdateUserRequest(
 
 public record SetUserActiveRequest(bool IsActive);
 
+public record UserVehicleBrandsDto(IEnumerable<Guid> BrandIds);
+public record UpdateUserVehicleBrandsRequest(IEnumerable<Guid> BrandIds);
+
 /// <summary>
 /// Row returned by fn_get_user_by_id / fn_find_user_by_email.
 /// Contains all fields needed to build a JWT and LoginResponseDto.

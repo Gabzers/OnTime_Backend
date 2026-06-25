@@ -25,7 +25,13 @@ public sealed class StageRepository : IStageRepository
             .OrderBy(s => s.Order)
             .ToListAsync(ct);
 
-        return stages.Select(ToDto);
+        var counts = await _db.Clients
+            .Where(c => c.IsActive && stages.Select(s => s.Id).Contains(c.CurrentStageId))
+            .GroupBy(c => c.CurrentStageId)
+            .Select(g => new { StageId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(g => g.StageId, g => g.Count, ct);
+
+        return stages.Select(s => ToDto(s, counts.GetValueOrDefault(s.Id)));
     }
 
     public async Task<ClientStage?> FindAsync(Guid id, CancellationToken ct = default) =>
@@ -38,7 +44,7 @@ public sealed class StageRepository : IStageRepository
 
     public async Task<ClientStage?> FindFirstByUserAsync(Guid userId, CancellationToken ct = default) =>
         await _db.ClientStages
-            .Where(s => s.UserId == userId && s.IsActive)
+            .Where(s => s.UserId == userId)
             .OrderBy(s => s.Order)
             .FirstOrDefaultAsync(ct);
 
@@ -91,9 +97,10 @@ public sealed class StageRepository : IStageRepository
 
     // ── Mapper ────────────────────────────────────────────────────────────
 
-    private static ClientStageDto ToDto(ClientStage s) =>
+    private static ClientStageDto ToDto(ClientStage s, int clientCount = 0) =>
         new(s.Id, s.Name, s.Color, s.Order, s.IsFinal, s.IsWon, s.IsLost, s.IsActive,
-            (s.Templates ?? Enumerable.Empty<StageNotificationTemplate>()).Select(ToTemplateDto));
+            (s.Templates ?? Enumerable.Empty<StageNotificationTemplate>()).Select(ToTemplateDto),
+            clientCount);
 
     private static StageTemplateDto ToTemplateDto(StageNotificationTemplate t) =>
         new(t.Id, t.Title, t.DaysAfter, t.IsEnabled, t.TimeOfDay, t.OverridesNewClientNotification);

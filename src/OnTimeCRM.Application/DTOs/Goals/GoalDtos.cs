@@ -9,6 +9,7 @@ public record UserGoalDto(
     decimal TargetValue,
     DateTimeOffset StartDate,
     DateTimeOffset? EndDate,
+    bool ShowOnDashboard,
     DateTimeOffset CreatedAt
 );
 
@@ -23,11 +24,13 @@ public record CreateUserGoalRequest(
     [Required] int Period,
     [Required] decimal TargetValue,
     [Required] DateTimeOffset StartDate,
-    DateTimeOffset? EndDate
+    DateTimeOffset? EndDate,
+    bool ShowOnDashboard = false
 );
 
 public record UpdateUserGoalRequest(
     [Required] decimal TargetValue,
     [Required] DateTimeOffset StartDate,
-    DateTimeOffset? EndDate
+    DateTimeOffset? EndDate,
+    bool ShowOnDashboard = false
 );

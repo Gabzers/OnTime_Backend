@@ -28,6 +28,7 @@ public interface IAppDbContext
     DbSet<TranslationEntry> TranslationEntries { get; }
     DbSet<UserGoal> UserGoals { get; }
     DbSet<MenuItemPermission> MenuItemPermissions { get; }
+    DbSet<ErrorLog> ErrorLogs { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
     DatabaseFacade Database { get; }

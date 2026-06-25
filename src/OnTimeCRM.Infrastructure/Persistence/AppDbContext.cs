@@ -30,6 +30,8 @@ public class AppDbContext : DbContext, IAppDbContext, IUnitOfWork
     public DbSet<UserPublicProfile> UserPublicProfiles => Set<UserPublicProfile>();
     public DbSet<UserGoal> UserGoals => Set<UserGoal>();
     public DbSet<MenuItemPermission> MenuItemPermissions => Set<MenuItemPermission>();
+    public DbSet<UserVehicleBrand> UserVehicleBrands => Set<UserVehicleBrand>();
+    public DbSet<ErrorLog> ErrorLogs => Set<ErrorLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
