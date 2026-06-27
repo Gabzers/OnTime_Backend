@@ -1,0 +1,60 @@
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using OnTime.Application.Common;
+using OnTime.Application.DTOs.Brands;
+using OnTime.Application.Interfaces;
+
+namespace OnTime.API.Controllers;
+
+[ApiController]
+[Route("api/brands")]
+[Authorize(Policy = "ManagerOnly")]
+public class BrandsController : ControllerBase
+{
+    private readonly IBrandService _brands;
+
+    public BrandsController(IBrandService brands) => _brands = brands;
+
+    [HttpGet]
+    public async Task<IActionResult> GetAll(CancellationToken ct)
+    {
+        var result = await _brands.GetByCompanyAsync(User.RequireCompanyId(), ct);
+        return Ok(result);
+    }
+
+    [HttpGet("{id:guid}")]
+    public async Task<IActionResult> GetById(Guid id, CancellationToken ct)
+    {
+        var result = await _brands.GetByIdAsync(id, User.RequireCompanyId(), ct);
+        return Ok(result);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> Create(
+        [FromBody] CreateBrandRequest request,
+        CancellationToken ct)
+    {
+        var result = await _brands.CreateAsync(User.RequireCompanyId(), request, ct);
+        return Created($"api/brands/{result.Id}", result);
+    }
+
+    [HttpPut("{id:guid}")]
+    public async Task<IActionResult> Update(
+        Guid id,
+        [FromBody] UpdateBrandRequest request,
+        CancellationToken ct)
+    {
+        var result = await _brands.UpdateAsync(id, User.RequireCompanyId(), request, ct);
+        return Ok(result);
+    }
+
+    [HttpPatch("{id:guid}/active")]
+    public async Task<IActionResult> SetActive(
+        Guid id,
+        [FromBody] SetBrandActiveRequest request,
+        CancellationToken ct)
+    {
+        await _brands.SetActiveAsync(id, User.RequireCompanyId(), request.IsActive, ct);
+        return NoContent();
+    }
+}

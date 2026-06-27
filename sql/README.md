@@ -1,4 +1,4 @@
-# OnTimeCRM — SQL Directory
+# OnTime — SQL Directory
 
 Standalone SQL files extracted from `DatabaseFunctions.cs` for maintainability.
 The application still applies every function automatically at startup via `DatabaseInitializer.cs`.
