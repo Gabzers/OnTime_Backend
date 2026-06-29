@@ -35,6 +35,7 @@ public static class InfrastructureServiceExtensions
         services.AddScoped<IVehicleRepository,                VehicleRepository>();
         services.AddScoped<IFriendshipRepository,             FriendshipRepository>();
         services.AddScoped<IAdminRepository,                  AdminRepository>();
+        services.AddScoped<ILeadSourceRepository,              LeadSourceRepository>();
 
         services.AddScoped<IPasswordHasher, Pbkdf2PasswordHasher>();
         services.AddScoped<IJwtService, JwtService>();

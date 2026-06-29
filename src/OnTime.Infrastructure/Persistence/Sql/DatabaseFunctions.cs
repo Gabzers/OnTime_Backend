@@ -435,8 +435,8 @@ public static class DatabaseFunctions
                 COALESCE(
                     (SELECT CONCAT(vb.name, ' ', vm.name)
                      FROM proposal_vehicles pv
-                     LEFT JOIN vehicle_models vm ON vm.id = pv.model_id
-                     LEFT JOIN vehicle_brands vb ON vb.id = vm.brand_id
+                     JOIN user_vehicle_models vm ON vm.id = pv.model_id
+                     JOIN vehicle_brands vb ON vb.id = vm.vehicle_brand_id
                      WHERE pv.proposal_id = p.id
                      ORDER BY pv.is_preferred DESC LIMIT 1),
                     (SELECT pv2.free_text_model

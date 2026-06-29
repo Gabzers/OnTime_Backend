@@ -57,4 +57,42 @@ public class BrandsController : ControllerBase
         await _brands.SetActiveAsync(id, User.RequireCompanyId(), request.IsActive, ct);
         return NoContent();
     }
+
+    // ── Vehicle brands this Filial sells (see USER-BRANDS.md) ──────────────
+
+    [HttpGet("{id:guid}/vehicle-brands")]
+    public async Task<IActionResult> GetVehicleBrands(Guid id, CancellationToken ct)
+    {
+        var result = await _brands.GetVehicleBrandIdsAsync(id, User.RequireCompanyId(), ct);
+        return Ok(result);
+    }
+
+    [HttpPut("{id:guid}/vehicle-brands")]
+    public async Task<IActionResult> SetVehicleBrands(
+        Guid id,
+        [FromBody] UpdateBrandVehicleBrandsRequest request,
+        CancellationToken ct)
+    {
+        await _brands.SetVehicleBrandIdsAsync(id, User.RequireCompanyId(), request, ct);
+        return NoContent();
+    }
+
+    // ── Membership grants (own company only) ────────────────────────────────
+
+    [HttpPost("{id:guid}/members")]
+    public async Task<IActionResult> GrantMembership(
+        Guid id,
+        [FromBody] GrantMembershipRequest request,
+        CancellationToken ct)
+    {
+        await _brands.GrantMembershipAsync(id, User.RequireCompanyId(), request.UserId, ct);
+        return NoContent();
+    }
+
+    [HttpDelete("{id:guid}/members/{userId:guid}")]
+    public async Task<IActionResult> RevokeMembership(Guid id, Guid userId, CancellationToken ct)
+    {
+        await _brands.RevokeMembershipAsync(id, User.RequireCompanyId(), userId, ct);
+        return NoContent();
+    }
 }

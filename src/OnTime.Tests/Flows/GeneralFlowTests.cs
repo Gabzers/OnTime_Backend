@@ -39,6 +39,14 @@ public class GeneralFlowTests : IAsyncLifetime
         var brandCreateResp = await _factory.Client.PostAsJsonAsync(
             "/api/vehicles/brands", new CreateVehicleBrandRequest($"TestBrand-{Guid.NewGuid():N}", null), auth.Token);
         var brandDto = await brandCreateResp.Content.ReadFromJsonAsync<VehicleBrandDto>();
+
+        // Vehicle brands are configured per-Filial by Manager/Admin (see USER-BRANDS.md) — allow
+        // it on the manager's own Filial before a model can be created under it.
+        await _factory.Client.PutAsJsonAsync(
+            $"/api/brands/{auth.BrandId}/vehicle-brands",
+            new OnTime.Application.DTOs.Brands.UpdateBrandVehicleBrandsRequest([brandDto!.Id]),
+            auth.Token);
+
         var modelCreateResp = await _factory.Client.PostAsJsonAsync(
             "/api/vehicles/models",
             new CreateVehicleModelRequest(brandDto!.Id, "TestModel", null, 2024, null, null, null),
@@ -336,24 +344,30 @@ public class GeneralFlowTests : IAsyncLifetime
         var brand = await brandResp.Content.ReadFromJsonAsync<VehicleBrandDto>();
         brand.ShouldNotBeNull();
 
+        // Allow it on the manager's own Filial first (see USER-BRANDS.md).
+        await _factory.Client.PutAsJsonAsync(
+            $"/api/brands/{auth.BrandId}/vehicle-brands",
+            new OnTime.Application.DTOs.Brands.UpdateBrandVehicleBrandsRequest([brand.Id]),
+            auth.Token);
+
         // Add a model to it
         await _factory.Client.PostAsJsonAsync(
             "/api/vehicles/models",
             new CreateVehicleModelRequest(brand!.Id, "TestModel", null, 2024, null, null, null),
             auth.Token);
 
-        // ASSERT model count before
+        // ASSERT model count before — POST /models now creates a per-user UserVehicleModel
         _factory.Db.ChangeTracker.Clear();
-        var countBefore = await _factory.Db.VehicleModels.CountAsync(m => m.BrandId == brand.Id);
+        var countBefore = await _factory.Db.UserVehicleModels.CountAsync(m => m.VehicleBrandId == brand.Id);
         countBefore.ShouldBe(1);
 
         // ACT — delete the brand
         var deleteResp = await _factory.Client.DeleteAsync($"/api/vehicles/brands/{brand.Id}", auth.Token);
         deleteResp.StatusCode.ShouldBe(HttpStatusCode.NoContent);
 
-        // ASSERT — models also deleted (cascade)
+        // ASSERT — personal models also deleted (cascade)
         _factory.Db.ChangeTracker.Clear();
-        var countAfter = await _factory.Db.VehicleModels.CountAsync(m => m.BrandId == brand.Id);
+        var countAfter = await _factory.Db.UserVehicleModels.CountAsync(m => m.VehicleBrandId == brand.Id);
         countAfter.ShouldBe(0);
         var brandExists = await _factory.Db.VehicleBrands.AnyAsync(b => b.Id == brand.Id);
         brandExists.ShouldBeFalse();

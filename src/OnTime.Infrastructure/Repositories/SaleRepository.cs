@@ -60,7 +60,7 @@ public sealed class SaleRepository : ISaleRepository
                 s.Id,
                 s.ClientId,
                 s.Client.FullName,
-                s.Model != null ? $"{s.Model.Brand.Name} {s.Model.Name}" : null,
+                s.Model != null ? $"{s.Model.VehicleBrand.Name} {s.Model.Name}" : null,
                 s.FreeTextModel,
                 s.FinalValue,
                 (int)s.PaymentType,
@@ -81,7 +81,7 @@ public sealed class SaleRepository : ISaleRepository
             .AsNoTracking()
             .Include(x => x.Client)
             .Include(x => x.Model)
-                .ThenInclude(m => m!.Brand)
+                .ThenInclude(m => m!.VehicleBrand)
             .FirstOrDefaultAsync(x => x.Id == id && x.UserId == userId, ct);
 
         if (s is null) return null;
@@ -89,7 +89,7 @@ public sealed class SaleRepository : ISaleRepository
         return new SaleDto(
             s.Id, s.ProposalId, s.ClientId, s.Client.FullName, s.Client.Phone,
             s.ModelId,
-            s.Model != null ? $"{s.Model.Brand.Name} {s.Model.Name}" : null,
+            s.Model != null ? $"{s.Model.VehicleBrand.Name} {s.Model.Name}" : null,
             s.FreeTextModel,
             s.FinalValue, (int)s.PaymentType,
             s.SoldAt,

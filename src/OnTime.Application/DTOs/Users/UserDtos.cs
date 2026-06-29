@@ -30,13 +30,16 @@ public record UserListDto(
 
 public record UpdateUserRequest(
     string? FullName,
-    string? Phone
+    string? Phone,
+    [EmailAddress] string? Email = null
 );
 
 public record SetUserActiveRequest(bool IsActive);
 
-public record UserVehicleBrandsDto(IEnumerable<Guid> BrandIds);
-public record UpdateUserVehicleBrandsRequest(IEnumerable<Guid> BrandIds);
+public record ChangePasswordRequest(
+    [Required] string CurrentPassword,
+    [Required][MinLength(8)] string NewPassword
+);
 
 /// <summary>
 /// Row returned by fn_get_user_by_id / fn_find_user_by_email.

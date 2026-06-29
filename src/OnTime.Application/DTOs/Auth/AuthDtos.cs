@@ -47,10 +47,17 @@ public record LoginResponseDto(
     string? BrandColor,
     int AccountStatus,
     int SubscriptionStatus,
-    DateTimeOffset? SubscriptionExpiresAt
+    DateTimeOffset? SubscriptionExpiresAt,
+    /// <summary>False hides vehicle-related UI for this user's active Filial. Defaults true when
+    /// the user has no brand yet. See ROADMAP.md "Not an automotive account" toggle.</summary>
+    bool IsAutomotive = true
 );
 
 // ── Public company/brand lookup (for registration dropdowns) ──────────────────
 public record CompanyLookupDto(Guid Id, string Name);
 public record BrandLookupDto(Guid Id, string Name, string? PrimaryColor);
+
+// ── Multi-Filial membership (see USER-BRANDS.md / 04-DECISIONS) ───────────────
+public record MembershipDto(Guid CompanyId, string CompanyName, Guid BrandId, string BrandName);
+public record SwitchBrandRequest([Required] Guid BrandId);
 

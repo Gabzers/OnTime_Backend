@@ -88,10 +88,23 @@ public class ProposalSaleFlowTests : IAsyncLifetime
         var auth = await TestHelpers.RegisterManagerAsync(_factory.Client);
         await TestHelpers.ActivateSubscriptionDirectAsync(_factory.Db, auth.UserId);
 
-        var model = await _factory.Db.VehicleModels
+        // ProposalVehicle.ModelId now points to the user's OWN catalog (UserVehicleModel), not
+        // the global VehicleModel — configure the Manager's own Filial to sell this brand first
+        // (Manager/Admin-only now, see USER-BRANDS.md), which lazily clones it into their catalog.
+        var globalModel = await _factory.Db.VehicleModels
             .AsNoTracking()
             .Include(m => m.Brand)
             .FirstAsync(m => m.IsActive);
+
+        await _factory.Client.PutAsJsonAsync(
+            $"/api/brands/{auth.BrandId}/vehicle-brands",
+            new OnTime.Application.DTOs.Brands.UpdateBrandVehicleBrandsRequest([globalModel.BrandId]),
+            auth.Token);
+
+        var myModels = await _factory.Client.GetFromJsonAsync<
+            OnTime.Application.Common.PagedResult<OnTime.Application.DTOs.Vehicles.VehicleModelListDto>>(
+            $"/api/vehicles/models?brandId={globalModel.BrandId}", auth.Token);
+        var model = myModels!.Items.First(m => m.Name == globalModel.Name);
 
         var stageId = await TestHelpers.GetFirstStageIdAsync(_factory.Client, auth.Token);
         var createReq = new CreateClientRequest(
@@ -142,7 +155,7 @@ public class ProposalSaleFlowTests : IAsyncLifetime
         var sale = await response.Content.ReadFromJsonAsync<SaleDto>();
         sale.ShouldNotBeNull();
         sale!.ModelId.ShouldBe(model.Id);
-        sale.ModelName.ShouldBe($"{model.Brand.Name} {model.Name}");
+        sale.ModelName.ShouldBe($"{model.BrandName} {model.Name}");
     }
 
     // ── Test 2 ───────────────────────────────────────────────────────────────
@@ -397,6 +410,68 @@ public class ProposalSaleFlowTests : IAsyncLifetime
         var dto = await resp.Content.ReadFromJsonAsync<ProposalDto>();
         dto!.Discount.ShouldBe(800m);
         dto.ProposalValue.ShouldBe(35000m);
+    }
+
+    // ── Test 6c ──────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task GetPaged_ProposalWithOnlyFreeTextVehicle_ReturnsFreeTextAsVehicleName()
+    {
+        // ARRANGE — a proposal whose only vehicle has no catalog ModelId
+        var auth = await TestHelpers.RegisterManagerAsync(_factory.Client);
+        await TestHelpers.ActivateSubscriptionDirectAsync(_factory.Db, auth.UserId);
+        var (clientId, _) = await TestHelpers.CreateClientWithProposalAsync(
+            _factory.Client, auth.Token, db: _factory.Db);
+
+        var req = new CreateProposalRequest(
+            BusinessType: 0, PaymentType: 0, ProposalValue: 12000m, Discount: null,
+            ProposalDate: DateTimeOffset.UtcNow, HasTradeIn: false,
+            TradeInType: null, TradeInPlate: null, TradeInBrand: null,
+            TradeInModel: null, TradeInYear: null, TradeInKm: null, TradeInEstimatedValue: null,
+            Vehicles: [new ProposalVehicleRequest(null, "Carro Usado Sem Catálogo", true)]
+        );
+        await _factory.Client.PostAsJsonAsync($"/api/clients/{clientId}/proposals", req, auth.Token);
+
+        // ACT
+        var resp = await _factory.Client.GetFromJsonAsync<PagedResult<ProposalListDto>>(
+            $"/api/proposals?clientId={clientId}&pageSize=50", auth.Token);
+
+        // ASSERT — the free-text proposal shows its own text, not a blank/whitespace value
+        var item = resp!.Items.First(p => p.ProposalValue == 12000m);
+        item.VehicleName.ShouldBe("Carro Usado Sem Catálogo");
+    }
+
+    // ── Test 6d ──────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task ConvertToSale_WithoutExplicitPlate_InheritsPlateFromTheProposalVehicle()
+    {
+        // ARRANGE — a proposal vehicle that already has a plate (used car)
+        var auth = await TestHelpers.RegisterManagerAsync(_factory.Client);
+        await TestHelpers.ActivateSubscriptionDirectAsync(_factory.Db, auth.UserId);
+        var (clientId, _) = await TestHelpers.CreateClientWithProposalAsync(
+            _factory.Client, auth.Token, db: _factory.Db);
+
+        var createReq = new CreateProposalRequest(
+            BusinessType: 0, PaymentType: 0, ProposalValue: 9000m, Discount: null,
+            ProposalDate: DateTimeOffset.UtcNow, HasTradeIn: false,
+            TradeInType: null, TradeInPlate: null, TradeInBrand: null,
+            TradeInModel: null, TradeInYear: null, TradeInKm: null, TradeInEstimatedValue: null,
+            Vehicles: [new ProposalVehicleRequest(null, "Carro Usado", true, Plate: "AA-11-BB")]
+        );
+        var createResp = await _factory.Client.PostAsJsonAsync(
+            $"/api/clients/{clientId}/proposals", createReq, auth.Token);
+        var created = await createResp.Content.ReadFromJsonAsync<ProposalDto>();
+
+        // ACT — convert to sale without specifying Plate in the request
+        var convertReq = new ConvertToSaleRequest(SoldAt: DateTimeOffset.UtcNow, FinalValue: 9000m);
+        var convertResp = await _factory.Client.PostAsJsonAsync(
+            $"/api/proposals/{created!.Id}/convert", convertReq, auth.Token);
+
+        // ASSERT
+        convertResp.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var sale = await convertResp.Content.ReadFromJsonAsync<SaleDto>();
+        sale!.Plate.ShouldBe("AA-11-BB");
     }
 
     // ── Test 7 ───────────────────────────────────────────────────────────────

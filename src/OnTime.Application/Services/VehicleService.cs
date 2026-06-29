@@ -24,9 +24,9 @@ public class VehicleService : IVehicleService
         VehicleSearchParams p, Guid userId, CancellationToken ct = default) =>
         _repo.GetModelsAsync(p, userId, ct);
 
-    public async Task<VehicleModelDto> GetModelByIdAsync(Guid id, CancellationToken ct = default)
+    public async Task<VehicleModelDto> GetModelByIdAsync(Guid id, Guid userId, CancellationToken ct = default)
     {
-        return await _repo.GetModelDtoAsync(id, ct)
+        return await _repo.GetModelDtoAsync(id, userId, ct)
             ?? throw new ApiException(ApiErrorCatalog.VEHICLE_MODEL_NOT_FOUND);
     }
 
@@ -48,36 +48,42 @@ public class VehicleService : IVehicleService
     }
 
     public async Task<VehicleModelDto> CreateModelAsync(
-        CreateVehicleModelRequest req, CancellationToken ct = default)
+        CreateVehicleModelRequest req, Guid userId, CancellationToken ct = default)
     {
         var brand = await _repo.FindBrandAsync(req.BrandId, ct)
             ?? throw new ApiException(ApiErrorCatalog.VEHICLE_BRAND_NOT_FOUND);
 
-        var model = new VehicleModel
+        // The vehicle brands a user can create models under are configured per-Filial by
+        // Manager/Admin (see USER-BRANDS.md) — not picked by the user themselves anymore.
+        if (!await _repo.IsBrandAllowedForUserAsync(userId, req.BrandId, ct))
+            throw new ApiException(ApiErrorCatalog.VEHICLE_BRAND_NOT_ALLOWED);
+
+        var model = new UserVehicleModel
         {
-            BrandId   = req.BrandId,
-            Name      = req.Name,
-            Version   = req.Version,
-            Year      = req.Year,
-            FuelType  = req.FuelType is null ? null : (Domain.Enums.FuelType)req.FuelType,
-            BasePrice = req.BasePrice,
-            ImageUrl  = req.ImageUrl
+            UserId         = userId,
+            VehicleBrandId = req.BrandId,
+            Name           = req.Name,
+            Version        = req.Version,
+            Year           = req.Year,
+            FuelType       = req.FuelType is null ? null : (Domain.Enums.FuelType)req.FuelType,
+            BasePrice      = req.BasePrice,
+            ImageUrl       = req.ImageUrl
         };
 
         _repo.AddModel(model);
         await _uow.SaveChangesAsync(ct);
 
-        model.Brand = brand;
-        return new VehicleModelDto(model.Id, model.BrandId, brand.Name, model.Name,
+        model.VehicleBrand = brand;
+        return new VehicleModelDto(model.Id, model.VehicleBrandId, brand.Name, model.Name,
             model.Version, model.Year,
             model.FuelType is null ? null : (int)model.FuelType,
             model.BasePrice, model.ImageUrl, []);
     }
 
     public async Task<VehicleModelDto> UpdateModelAsync(
-        Guid id, UpdateVehicleModelRequest req, CancellationToken ct = default)
+        Guid id, Guid userId, UpdateVehicleModelRequest req, CancellationToken ct = default)
     {
-        var model = await _repo.FindModelAsync(id, ct)
+        var model = await _repo.FindModelAsync(id, userId, ct)
             ?? throw new ApiException(ApiErrorCatalog.VEHICLE_MODEL_NOT_FOUND);
 
         model.Name      = req.Name;
@@ -89,7 +95,7 @@ public class VehicleService : IVehicleService
 
         await _uow.SaveChangesAsync(ct);
 
-        return new VehicleModelDto(model.Id, model.BrandId, model.Brand.Name, model.Name,
+        return new VehicleModelDto(model.Id, model.VehicleBrandId, model.VehicleBrand.Name, model.Name,
             model.Version, model.Year,
             model.FuelType is null ? null : (int)model.FuelType,
             model.BasePrice, model.ImageUrl,
@@ -103,34 +109,38 @@ public class VehicleService : IVehicleService
             model.IsActive);
     }
 
-    public async Task SetModelActiveAsync(Guid id, bool isActive, CancellationToken ct = default)
+    public async Task SetModelActiveAsync(Guid id, Guid userId, bool isActive, CancellationToken ct = default)
     {
-        var model = await _repo.FindModelAsync(id, ct)
+        var model = await _repo.FindModelAsync(id, userId, ct)
             ?? throw new ApiException(ApiErrorCatalog.VEHICLE_MODEL_NOT_FOUND);
         model.IsActive = isActive;
         await _uow.SaveChangesAsync(ct);
     }
 
-    public async Task DeleteModelAsync(Guid id, CancellationToken ct = default)
+    public async Task DeleteModelAsync(Guid id, Guid userId, CancellationToken ct = default)
     {
-        var model = await _repo.FindModelAsync(id, ct)
+        var model = await _repo.FindModelAsync(id, userId, ct)
             ?? throw new ApiException(ApiErrorCatalog.VEHICLE_MODEL_NOT_FOUND);
+
+        if (await _repo.IsModelInUseAsync(id, ct))
+            throw new ApiException(ApiErrorCatalog.VEHICLE_MODEL_IN_USE);
+
         _repo.RemoveModel(model);
         await _uow.SaveChangesAsync(ct);
     }
 
     // ── Versions ──────────────────────────────────────────────────────────
 
-    public Task<IEnumerable<VehicleVersionDto>> GetVersionsAsync(Guid modelId, CancellationToken ct = default) =>
-        _repo.GetVersionsAsync(modelId, ct);
+    public Task<IEnumerable<VehicleVersionDto>> GetVersionsAsync(Guid modelId, Guid userId, CancellationToken ct = default) =>
+        _repo.GetVersionsAsync(modelId, userId, ct);
 
     public async Task<VehicleVersionDto> CreateVersionAsync(
-        Guid modelId, CreateVehicleVersionRequest req, CancellationToken ct = default)
+        Guid modelId, Guid userId, CreateVehicleVersionRequest req, CancellationToken ct = default)
     {
-        var model = await _repo.FindModelAsync(modelId, ct)
+        var model = await _repo.FindModelAsync(modelId, userId, ct)
             ?? throw new ApiException(ApiErrorCatalog.VEHICLE_MODEL_NOT_FOUND);
 
-        var version = new VehicleModelVersion
+        var version = new UserVehicleVersion
         {
             ModelId        = model.Id,
             Name           = req.Name,
@@ -146,9 +156,9 @@ public class VehicleService : IVehicleService
     }
 
     public async Task<VehicleVersionDto> UpdateVersionAsync(
-        Guid id, UpdateVehicleVersionRequest req, CancellationToken ct = default)
+        Guid id, Guid userId, UpdateVehicleVersionRequest req, CancellationToken ct = default)
     {
-        var version = await _repo.FindVersionAsync(id, ct)
+        var version = await _repo.FindVersionAsync(id, userId, ct)
             ?? throw new ApiException(ApiErrorCatalog.VEHICLE_MODEL_NOT_FOUND);
 
         version.Name           = req.Name;
@@ -161,10 +171,14 @@ public class VehicleService : IVehicleService
             ColorArrayHelper.Parse(version.InternalColors));
     }
 
-    public async Task DeleteVersionAsync(Guid id, CancellationToken ct = default)
+    public async Task DeleteVersionAsync(Guid id, Guid userId, CancellationToken ct = default)
     {
-        var version = await _repo.FindVersionAsync(id, ct)
+        var version = await _repo.FindVersionAsync(id, userId, ct)
             ?? throw new ApiException(ApiErrorCatalog.VEHICLE_MODEL_NOT_FOUND);
+
+        if (await _repo.IsVersionInUseAsync(id, ct))
+            throw new ApiException(ApiErrorCatalog.VEHICLE_MODEL_IN_USE);
+
         _repo.RemoveVersion(version);
         await _uow.SaveChangesAsync(ct);
     }

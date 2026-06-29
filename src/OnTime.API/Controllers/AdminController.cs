@@ -4,6 +4,7 @@ using OnTime.Application.Common;
 using OnTime.Application.DTOs.Brands;
 using OnTime.Application.DTOs.Companies;
 using OnTime.Application.Interfaces;
+using OnTime.Application.Common;
 
 namespace OnTime.API.Controllers;
 
@@ -91,6 +92,42 @@ public class AdminController : ControllerBase
         await _brands.SetActiveAsync(id, companyId, request.IsActive, ct);
         return NoContent();
     }
+
+    // ── Users (per company) ──────────────────────────────────────────────
+
+    [HttpGet("companies/{companyId:guid}/users")]
+    public async Task<IActionResult> GetUsers(Guid companyId, CancellationToken ct)
+    {
+        var result = await _admin.GetUsersByCompanyAsync(companyId, ct);
+        return Ok(result);
+    }
+
+    [HttpPatch("users/{id:guid}/role")]
+    public async Task<IActionResult> UpdateUserRole(
+        Guid id, [FromBody] UpdateUserRoleRequest request, CancellationToken ct)
+    {
+        var result = await _admin.UpdateUserRoleAsync(id, request.Role, User.GetUserId(), ct);
+        return Ok(result);
+    }
+
+    // ── Memberships (any company — platform Admin) ──────────────────────────
+
+    [HttpPost("users/{id:guid}/memberships")]
+    public async Task<IActionResult> GrantMembership(
+        Guid id, [FromBody] GrantBrandMembershipRequest request, CancellationToken ct)
+    {
+        await _admin.GrantMembershipAsync(id, request.BrandId, ct);
+        return NoContent();
+    }
+
+    [HttpDelete("users/{id:guid}/memberships/{brandId:guid}")]
+    public async Task<IActionResult> RevokeMembership(Guid id, Guid brandId, CancellationToken ct)
+    {
+        await _admin.RevokeMembershipAsync(id, brandId, ct);
+        return NoContent();
+    }
 }
 
 public record SetActiveRequest(bool IsActive);
+public record UpdateUserRoleRequest(int Role);
+public record GrantBrandMembershipRequest(Guid BrandId);

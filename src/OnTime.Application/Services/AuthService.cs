@@ -41,6 +41,7 @@ public class AuthService : IAuthService
         {
             company = new Company { Name = req.CompanyName, IsActive = true };
             _repo.AddCompany(company);
+            SeedDefaultLeadSources(company);
 
             if (!string.IsNullOrWhiteSpace(req.BrandName))
             {
@@ -79,6 +80,7 @@ public class AuthService : IAuthService
             IsActive           = true
         };
         _repo.AddUser(user);
+        if (brand is not null) _repo.AddMembership(new UserBrandMembership { User = user, Brand = brand });
 
         SeedDefaultStages(user);
         SeedDefaultNotificationPreference(user);
@@ -135,6 +137,7 @@ public class AuthService : IAuthService
             IsActive           = true
         };
         _repo.AddUser(user);
+        if (brand is not null) _repo.AddMembership(new UserBrandMembership { User = user, Brand = brand });
 
         SeedDefaultStages(user);
         SeedDefaultNotificationPreference(user);
@@ -157,6 +160,32 @@ public class AuthService : IAuthService
 
         if (!user.IsActive)
             throw new ApiException(ApiErrorCatalog.USER_INACTIVE);
+
+        user.LastLoginAt = DateTimeOffset.UtcNow;
+        await _uow.SaveChangesAsync(ct);
+
+        return BuildLoginResponse(user);
+    }
+
+    public Task<IEnumerable<MembershipDto>> GetMyMembershipsAsync(Guid userId, CancellationToken ct = default) =>
+        _repo.GetMembershipsAsync(userId, ct);
+
+    public async Task<LoginResponseDto> SwitchBrandAsync(Guid userId, Guid brandId, CancellationToken ct = default)
+    {
+        if (!await _repo.HasMembershipAsync(userId, brandId, ct))
+            throw new ApiException(ApiErrorCatalog.AUTH_FORBIDDEN);
+
+        var user = await _repo.FindByIdWithNavigationsAsync(userId, ct)
+            ?? throw new ApiException(ApiErrorCatalog.USER_NOT_FOUND);
+        var brand = await _repo.FindBrandAsync(brandId, ct)
+            ?? throw new ApiException(ApiErrorCatalog.BRAND_NOT_FOUND);
+
+        user.BrandId   = brand.Id;
+        user.CompanyId = brand.CompanyId;
+        user.Brand     = brand;
+        user.Company   = await _repo.FindCompanyAsync(brand.CompanyId, ct);
+
+        await _uow.SaveChangesAsync(ct);
 
         return BuildLoginResponse(user);
     }
@@ -196,7 +225,15 @@ public class AuthService : IAuthService
             BrandColor:            user.Brand?.PrimaryColor,
             AccountStatus:         (int)user.AccountStatus,
             SubscriptionStatus:    (int)user.SubscriptionStatus,
-            SubscriptionExpiresAt: user.SubscriptionExpiresAt);
+            SubscriptionExpiresAt: user.SubscriptionExpiresAt,
+            IsAutomotive:          user.Brand?.IsAutomotive ?? true);
+    }
+
+    private void SeedDefaultLeadSources(Company company)
+    {
+        var names = new[] { "Stand", "Telefone", "OLX", "Standvirtual", "Instagram", "Facebook", "Referência", "Outro" };
+        for (var code = 0; code < names.Length; code++)
+            _repo.AddLeadSource(new LeadSourceOption { Company = company, Code = code, Name = names[code] });
     }
 
     private void SeedDefaultStages(User user)

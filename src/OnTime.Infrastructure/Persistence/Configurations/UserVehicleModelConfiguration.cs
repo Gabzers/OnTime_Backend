@@ -4,15 +4,19 @@ using OnTime.Domain.Entities;
 
 namespace OnTime.Infrastructure.Persistence.Configurations;
 
-public class UserVehicleBrandConfiguration : IEntityTypeConfiguration<UserVehicleBrand>
+public class UserVehicleModelConfiguration : IEntityTypeConfiguration<UserVehicleModel>
 {
-    public void Configure(EntityTypeBuilder<UserVehicleBrand> builder)
+    public void Configure(EntityTypeBuilder<UserVehicleModel> builder)
     {
         builder.HasKey(x => x.Id);
-        builder.HasIndex(x => new { x.UserId, x.VehicleBrandId }).IsUnique();
+        builder.Property(x => x.Name).IsRequired().HasMaxLength(100);
+        builder.Property(x => x.Version).HasMaxLength(100);
+        builder.Property(x => x.ImageUrl).HasMaxLength(500);
+        builder.Property(x => x.BasePrice).HasPrecision(18, 2);
+        builder.Property(x => x.Notes).HasMaxLength(1000);
 
         builder.HasOne(x => x.User)
-            .WithMany(u => u.SelectedVehicleBrands)
+            .WithMany()
             .HasForeignKey(x => x.UserId)
             .OnDelete(DeleteBehavior.Cascade);
 

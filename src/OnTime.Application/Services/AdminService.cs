@@ -1,8 +1,10 @@
 using OnTime.Application.Common;
 using OnTime.Application.DTOs.Companies;
+using OnTime.Application.DTOs.Users;
 using OnTime.Application.Interfaces;
 using OnTime.Application.Interfaces.Repositories;
 using OnTime.Domain.Entities;
+using OnTime.Domain.Enums;
 
 namespace OnTime.Application.Services;
 
@@ -63,6 +65,44 @@ public class AdminService : IAdminService
             ?? throw new ApiException(ApiErrorCatalog.COMPANY_NOT_FOUND);
 
         company.IsActive = isActive;
+        await _uow.SaveChangesAsync(ct);
+    }
+
+    public Task<IEnumerable<UserListDto>> GetUsersByCompanyAsync(
+        Guid companyId, CancellationToken ct = default) =>
+        _repo.GetUsersByCompanyAsync(companyId, ct);
+
+    public async Task<UserListDto> UpdateUserRoleAsync(
+        Guid userId, int role, Guid actingUserId, CancellationToken ct = default)
+    {
+        if (userId == actingUserId)
+            throw new ApiException(ApiErrorCatalog.CANNOT_CHANGE_OWN_ROLE);
+
+        if (role < 0 || role > 2)
+            throw new ApiException(ApiErrorCatalog.INVALID_ROLE);
+
+        var user = await _repo.FindUserAsync(userId, ct)
+            ?? throw new ApiException(ApiErrorCatalog.USER_NOT_FOUND);
+
+        user.Role = (UserRole)role;
+        await _uow.SaveChangesAsync(ct);
+
+        return new UserListDto(
+            user.Id, user.FullName, user.Email, user.Phone,
+            (int)user.Role, (int)user.AccountStatus, user.CreatedAt);
+    }
+
+    public async Task GrantMembershipAsync(Guid userId, Guid brandId, CancellationToken ct = default)
+    {
+        _ = await _repo.FindUserAsync(userId, ct) ?? throw new ApiException(ApiErrorCatalog.USER_NOT_FOUND);
+        _ = await _repo.FindBrandAsync(brandId, ct) ?? throw new ApiException(ApiErrorCatalog.BRAND_NOT_FOUND);
+        await _repo.GrantMembershipAsync(userId, brandId, ct);
+        await _uow.SaveChangesAsync(ct);
+    }
+
+    public async Task RevokeMembershipAsync(Guid userId, Guid brandId, CancellationToken ct = default)
+    {
+        await _repo.RevokeMembershipAsync(userId, brandId, ct);
         await _uow.SaveChangesAsync(ct);
     }
 }

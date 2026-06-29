@@ -13,15 +13,18 @@ public class ClientService : IClientService
 {
     private readonly IClientRepository _clientRepo;
     private readonly IStageRepository  _stageRepo;
+    private readonly IUserRepository   _userRepo;
     private readonly IUnitOfWork       _uow;
 
     public ClientService(
         IClientRepository clientRepo,
         IStageRepository stageRepo,
+        IUserRepository userRepo,
         IUnitOfWork uow)
     {
         _clientRepo = clientRepo;
         _stageRepo  = stageRepo;
+        _userRepo   = userRepo;
         _uow        = uow;
     }
 
@@ -54,7 +57,8 @@ public class ClientService : IClientService
         var p = req.Proposal;
         var vehicleList = p?.Vehicles?.ToList();
 
-        if (p is not null && (vehicleList is null || vehicleList.Count == 0))
+        if (p is not null && (vehicleList is null || vehicleList.Count == 0)
+            && await _userRepo.IsAutomotiveAsync(userId, ct))
             throw new ApiException(ApiErrorCatalog.PROPOSAL_MISSING_VEHICLE);
 
         var proposalValue = vehicleList?.Any(v => v.Price.HasValue) == true
@@ -68,7 +72,7 @@ public class ClientService : IClientService
             Email             = req.Email,
             Phone             = req.Phone,
             TaxId             = req.TaxId,
-            LeadSource        = (LeadSource)(req.LeadSource ?? 0),
+            LeadSource        = req.LeadSource ?? 0,
             CurrentStageId    = initialStage.Id,
             Temperature       = DealTemperature.Hot,
             LastInteractionAt = DateTimeOffset.UtcNow
@@ -114,7 +118,8 @@ public class ClientService : IClientService
                         Discount      = v.Discount,
                         VersionId     = v.VersionId,
                         ExternalColor = v.ExternalColor,
-                        InternalColor = v.InternalColor
+                        InternalColor = v.InternalColor,
+                        Plate         = v.Plate
                     });
                 }
             }
@@ -361,7 +366,7 @@ public class ClientService : IClientService
 
     private static ClientListDto ToListDto(Client c) =>
         new(c.Id, c.FullName, c.Phone, c.Email,
-            (int)c.LeadSource, (int)c.Temperature,
+            c.LeadSource, (int)c.Temperature,
             c.CurrentStageId, c.CurrentStage?.Name ?? string.Empty,
             c.CurrentStage?.Color,
             c.CurrentStage?.IsFinal ?? false, c.CurrentStage?.IsWon ?? false, c.CurrentStage?.IsLost ?? false,
@@ -369,7 +374,7 @@ public class ClientService : IClientService
 
     private static ClientDto ToDto(Client c) =>
         new(c.Id, c.FullName, c.Email, c.Phone, c.TaxId,
-            (int)c.LeadSource,
+            c.LeadSource,
             c.CurrentStageId,
             c.CurrentStage?.Name    ?? string.Empty,
             c.CurrentStage?.Color,

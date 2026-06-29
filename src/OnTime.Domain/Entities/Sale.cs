@@ -37,5 +37,5 @@ public class Sale : BaseEntity
     public Proposal Proposal { get; set; } = null!;
     public Client Client { get; set; } = null!;
     public User User { get; set; } = null!;
-    public VehicleModel? Model { get; set; }
+    public UserVehicleModel? Model { get; set; }
 }

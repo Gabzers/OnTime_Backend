@@ -10,6 +10,11 @@ public interface IUserRepository
     Task<IEnumerable<UserListDto>> GetByBrandAsync(Guid brandId, CancellationToken ct = default);
     Task<User?> FindInBrandAsync(Guid userId, Guid brandId, CancellationToken ct = default);
 
-    Task<IEnumerable<Guid>> GetVehicleBrandIdsAsync(Guid userId, CancellationToken ct = default);
-    Task SetVehicleBrandIdsAsync(Guid userId, IEnumerable<Guid> brandIds, CancellationToken ct = default);
+    /// <summary>True (default) unless the user's currently-active Filial has explicitly opted
+    /// out of being an automotive account (see Brand.IsAutomotive / ROADMAP.md).</summary>
+    Task<bool> IsAutomotiveAsync(Guid userId, CancellationToken ct = default);
+
+    /// <summary>True if another user (any id other than <paramref name="excludingUserId"/>)
+    /// already has this email — used when a user changes their own email via PUT /users/me.</summary>
+    Task<bool> EmailTakenByAnotherUserAsync(string email, Guid excludingUserId, CancellationToken ct = default);
 }

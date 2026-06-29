@@ -12,6 +12,9 @@ public static class ApiErrorCatalog
     public static readonly ApiError USER_INACTIVE                = new("USER_INACTIVE",                "User account is inactive.",              "Unauthorized", 401);
     public static readonly ApiError AUTH_UNAUTHORIZED            = new("AUTH_UNAUTHORIZED",            "Authentication required.",               "Unauthorized", 401);
     public static readonly ApiError AUTH_FORBIDDEN               = new("AUTH_FORBIDDEN",               "You do not have permission.",            "Forbidden",   403);
+    public static readonly ApiError CANNOT_CHANGE_OWN_ROLE       = new("CANNOT_CHANGE_OWN_ROLE",       "You cannot change your own role.",       "UnprocessableEntity", 422);
+    public static readonly ApiError INVALID_ROLE                 = new("INVALID_ROLE",                 "Invalid role value.",                    "UnprocessableEntity", 422);
+    public static readonly ApiError USER_CURRENT_PASSWORD_INVALID = new("USER_CURRENT_PASSWORD_INVALID", "Current password is incorrect.",        "UnprocessableEntity", 422);
 
     // ── Client ────────────────────────────────────────────────────────────────
     public static readonly ApiError CLIENT_NOT_FOUND             = new("CLIENT_NOT_FOUND",             "Client not found.",                      "NotFound",    404);
@@ -33,6 +36,9 @@ public static class ApiErrorCatalog
     public static readonly ApiError VEHICLE_BRAND_NOT_FOUND      = new("VEHICLE_BRAND_NOT_FOUND",      "Vehicle brand not found.",               "NotFound",    404);
     public static readonly ApiError VEHICLE_MODEL_NOT_FOUND      = new("VEHICLE_MODEL_NOT_FOUND",      "Vehicle model not found.",               "NotFound",    404);
     public static readonly ApiError VEHICLE_BRAND_EXISTS         = new("VEHICLE_BRAND_EXISTS",         "Vehicle brand already exists.",          "Conflict",    409);
+    public static readonly ApiError VEHICLE_MODEL_IN_USE         = new("VEHICLE_MODEL_IN_USE",         "Vehicle model is used in a proposal or sale and cannot be deleted.", "UnprocessableEntity", 422);
+    public static readonly ApiError VEHICLE_MODEL_FORBIDDEN      = new("VEHICLE_MODEL_FORBIDDEN",      "Vehicle model does not belong to you.",  "Forbidden",   403);
+    public static readonly ApiError VEHICLE_BRAND_NOT_ALLOWED    = new("VEHICLE_BRAND_NOT_ALLOWED",    "Your Filial doesn't sell this vehicle brand.", "Forbidden", 403);
 
     // ── Notification ──────────────────────────────────────────────────────────
     public static readonly ApiError NOTIFICATION_NOT_FOUND       = new("NOTIFICATION_NOT_FOUND",       "Notification not found.",                "NotFound",    404);
@@ -57,4 +63,8 @@ public static class ApiErrorCatalog
     public static readonly ApiError BRAND_INACTIVE               = new("BRAND_INACTIVE",               "Brand is inactive.",                     "UnprocessableEntity", 422);
     public static readonly ApiError BRAND_WRONG_COMPANY          = new("BRAND_WRONG_COMPANY",          "Brand does not belong to this company.", "Forbidden",   403);
     public static readonly ApiError USER_WRONG_BRAND             = new("USER_WRONG_BRAND",             "User does not belong to this brand.",    "Forbidden",   403);
+
+    // ── Lead Source ──────────────────────────────────────────────────────────
+    public static readonly ApiError LEAD_SOURCE_NOT_FOUND        = new("LEAD_SOURCE_NOT_FOUND",        "Lead source not found.",                 "NotFound",    404);
+    public static readonly ApiError LEAD_SOURCE_WRONG_COMPANY    = new("LEAD_SOURCE_WRONG_COMPANY",    "Lead source does not belong to this company.", "Forbidden", 403);
 }

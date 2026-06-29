@@ -13,7 +13,8 @@ public record BrandDto(
     string? LogoUrl,
     string? PrimaryColor,
     bool IsActive,
-    DateTimeOffset CreatedAt
+    DateTimeOffset CreatedAt,
+    bool IsAutomotive = true
 );
 
 public record BrandListDto(
@@ -21,7 +22,8 @@ public record BrandListDto(
     string Name,
     string? PrimaryColor,
     bool IsActive,
-    int UserCount
+    int UserCount,
+    bool IsAutomotive = true
 );
 
 public record CreateBrandRequest(
@@ -31,7 +33,8 @@ public record CreateBrandRequest(
     string? Email,
     string? Address,
     string? LogoUrl,
-    string? PrimaryColor
+    string? PrimaryColor,
+    bool IsAutomotive = true
 );
 
 public record UpdateBrandRequest(
@@ -41,7 +44,15 @@ public record UpdateBrandRequest(
     string? Email,
     string? Address,
     string? LogoUrl,
-    string? PrimaryColor
+    string? PrimaryColor,
+    bool IsAutomotive = true
 );
 
 public record SetBrandActiveRequest(bool IsActive);
+
+// ── Vehicle brands the Filial sells (Manager/Admin configured) ────────────────
+public record BrandVehicleBrandsDto(IEnumerable<Guid> VehicleBrandIds);
+public record UpdateBrandVehicleBrandsRequest(IEnumerable<Guid> VehicleBrandIds);
+
+// ── Membership grants ───────────────────────────────────────────────────────────
+public record GrantMembershipRequest([Required] Guid UserId);

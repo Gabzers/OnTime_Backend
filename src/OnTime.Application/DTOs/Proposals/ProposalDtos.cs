@@ -15,7 +15,8 @@ public record ProposalVehicleDto(
     Guid? VersionId,
     string? VersionName,
     string? ExternalColor,
-    string? InternalColor
+    string? InternalColor,
+    string? Plate = null
 );
 
 public record ProposalDto(

@@ -16,6 +16,7 @@ public class ProposalService : IProposalService
     private readonly IStageRepository                _stageRepo;
     private readonly INotificationPreferenceRepository _prefRepo;
     private readonly ISaleRepository                 _saleRepo;
+    private readonly IUserRepository                 _userRepo;
     private readonly IUnitOfWork                     _uow;
 
     public ProposalService(
@@ -24,6 +25,7 @@ public class ProposalService : IProposalService
         IStageRepository stageRepo,
         INotificationPreferenceRepository prefRepo,
         ISaleRepository saleRepo,
+        IUserRepository userRepo,
         IUnitOfWork uow)
     {
         _proposalRepo = proposalRepo;
@@ -31,6 +33,7 @@ public class ProposalService : IProposalService
         _stageRepo    = stageRepo;
         _prefRepo     = prefRepo;
         _saleRepo     = saleRepo;
+        _userRepo     = userRepo;
         _uow          = uow;
     }
 
@@ -64,7 +67,8 @@ public class ProposalService : IProposalService
             throw new ApiException(ApiErrorCatalog.CLIENT_WRONG_USER);
 
         var vehicleList = req.Vehicles?.ToList();
-        if (vehicleList is null || vehicleList.Count == 0)
+        if ((vehicleList is null || vehicleList.Count == 0)
+            && await _userRepo.IsAutomotiveAsync(userId, ct))
             throw new ApiException(ApiErrorCatalog.PROPOSAL_MISSING_VEHICLE);
 
         var proposal = BuildProposal(userId, clientId, req);
@@ -176,7 +180,7 @@ public class ProposalService : IProposalService
                 : ApiErrorCatalog.PROPOSAL_NOT_ACTIVE);
         }
 
-        var (modelId, freeTextModel) = ResolveSaleVehicle(p, req);
+        var (modelId, freeTextModel, vehiclePlate) = ResolveSaleVehicle(p, req);
 
         // Vehicle is required to convert to a sale, but it can be inherited from the proposal
         if (modelId == null && string.IsNullOrWhiteSpace(freeTextModel))
@@ -193,7 +197,7 @@ public class ProposalService : IProposalService
             FinalValue    = req.FinalValue,
             PaymentType   = (PaymentType)req.PaymentType,
             SoldAt        = req.SoldAt,   // business date from user — NEVER UtcNow
-            Plate         = req.Plate,
+            Plate         = req.Plate ?? vehiclePlate,
             Chassis       = req.Chassis,
             Obs           = req.Obs,
             Commission    = req.Commission,
@@ -316,21 +320,21 @@ public class ProposalService : IProposalService
         return manualDiscount;
     }
 
-    private static (Guid? ModelId, string? FreeTextModel) ResolveSaleVehicle(
+    private static (Guid? ModelId, string? FreeTextModel, string? Plate) ResolveSaleVehicle(
         Proposal proposal,
         ConvertToSaleRequest req)
     {
-        if (req.ModelId.HasValue || !string.IsNullOrWhiteSpace(req.FreeTextModel))
-            return (req.ModelId, req.FreeTextModel);
-
         var proposalVehicle = proposal.Vehicles
             .OrderByDescending(v => v.IsPreferred)
             .ThenBy(v => v.CreatedAt)
             .FirstOrDefault();
 
+        if (req.ModelId.HasValue || !string.IsNullOrWhiteSpace(req.FreeTextModel))
+            return (req.ModelId, req.FreeTextModel, proposalVehicle?.Plate);
+
         return proposalVehicle is null
-            ? (null, null)
-            : (proposalVehicle.ModelId, proposalVehicle.FreeTextModel);
+            ? (null, null, null)
+            : (proposalVehicle.ModelId, proposalVehicle.FreeTextModel, proposalVehicle.Plate);
     }
 
     private void AddVehicles(Proposal proposal, IEnumerable<ProposalVehicleRequest>? vehicles)
@@ -347,6 +351,7 @@ public class ProposalService : IProposalService
             VersionId     = v.VersionId,
             ExternalColor = v.ExternalColor,
             InternalColor = v.InternalColor,
+            Plate         = v.Plate,
         }));
     }
 }

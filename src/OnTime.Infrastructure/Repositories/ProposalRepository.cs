@@ -79,7 +79,7 @@ public sealed class ProposalRepository : IProposalRepository
             .Include(p => p.Client)
             .Include(p => p.Vehicles)
                 .ThenInclude(v => v.Model)
-                    .ThenInclude(m => m!.Brand)
+                    .ThenInclude(m => m!.VehicleBrand)
             .Include(p => p.Vehicles)
                 .ThenInclude(v => v.Version)
             .FirstOrDefaultAsync(p => p.Id == id, ct);
@@ -110,7 +110,7 @@ public sealed class ProposalRepository : IProposalRepository
             v.Id,
             v.ModelId,
             v.Model?.Name,
-            v.Model?.Brand?.Name,
+            v.Model?.VehicleBrand?.Name,
             v.FreeTextModel,
             v.IsPreferred,
             v.Price,
@@ -118,7 +118,8 @@ public sealed class ProposalRepository : IProposalRepository
             v.VersionId,
             v.Version?.Name,
             v.ExternalColor,
-            v.InternalColor)),
+            v.InternalColor,
+            v.Plate)),
         p.CreatedAt,
         p.UpdatedAt,
         p.Notes);
