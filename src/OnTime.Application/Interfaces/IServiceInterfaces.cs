@@ -6,6 +6,7 @@ using OnTime.Application.DTOs.Vehicles;
 using OnTime.Application.DTOs.Brands;
 using OnTime.Application.DTOs.Companies;
 using OnTime.Application.DTOs.Subscription;
+using OnTime.Application.DTOs.Users;
 
 namespace OnTime.Application.Interfaces;
 
@@ -44,19 +45,19 @@ public interface IVehicleService
 {
     Task<IEnumerable<VehicleBrandDto>> GetBrandsAsync(CancellationToken ct = default);
     Task<PagedResult<VehicleModelListDto>> GetModelsAsync(VehicleSearchParams p, Guid userId, CancellationToken ct = default);
-    Task<VehicleModelDto> GetModelByIdAsync(Guid id, CancellationToken ct = default);
+    Task<VehicleModelDto> GetModelByIdAsync(Guid id, Guid userId, CancellationToken ct = default);
     Task<VehicleBrandDto> CreateBrandAsync(CreateVehicleBrandRequest request, CancellationToken ct = default);
     Task DeleteBrandAsync(Guid id, CancellationToken ct = default);
-    Task<VehicleModelDto> CreateModelAsync(CreateVehicleModelRequest request, CancellationToken ct = default);
-    Task<VehicleModelDto> UpdateModelAsync(Guid id, UpdateVehicleModelRequest request, CancellationToken ct = default);
-    Task SetModelActiveAsync(Guid id, bool isActive, CancellationToken ct = default);
-    Task DeleteModelAsync(Guid id, CancellationToken ct = default);
+    Task<VehicleModelDto> CreateModelAsync(CreateVehicleModelRequest request, Guid userId, CancellationToken ct = default);
+    Task<VehicleModelDto> UpdateModelAsync(Guid id, Guid userId, UpdateVehicleModelRequest request, CancellationToken ct = default);
+    Task SetModelActiveAsync(Guid id, Guid userId, bool isActive, CancellationToken ct = default);
+    Task DeleteModelAsync(Guid id, Guid userId, CancellationToken ct = default);
 
     // Versions
-    Task<IEnumerable<VehicleVersionDto>> GetVersionsAsync(Guid modelId, CancellationToken ct = default);
-    Task<VehicleVersionDto> CreateVersionAsync(Guid modelId, CreateVehicleVersionRequest request, CancellationToken ct = default);
-    Task<VehicleVersionDto> UpdateVersionAsync(Guid id, UpdateVehicleVersionRequest request, CancellationToken ct = default);
-    Task DeleteVersionAsync(Guid id, CancellationToken ct = default);
+    Task<IEnumerable<VehicleVersionDto>> GetVersionsAsync(Guid modelId, Guid userId, CancellationToken ct = default);
+    Task<VehicleVersionDto> CreateVersionAsync(Guid modelId, Guid userId, CreateVehicleVersionRequest request, CancellationToken ct = default);
+    Task<VehicleVersionDto> UpdateVersionAsync(Guid id, Guid userId, UpdateVehicleVersionRequest request, CancellationToken ct = default);
+    Task DeleteVersionAsync(Guid id, Guid userId, CancellationToken ct = default);
 }
 
 public interface IBrandService
@@ -66,6 +67,12 @@ public interface IBrandService
     Task<BrandDto> CreateAsync(Guid companyId, CreateBrandRequest request, CancellationToken ct = default);
     Task<BrandDto> UpdateAsync(Guid id, Guid companyId, UpdateBrandRequest request, CancellationToken ct = default);
     Task SetActiveAsync(Guid id, Guid companyId, bool isActive, CancellationToken ct = default);
+
+    Task<BrandVehicleBrandsDto> GetVehicleBrandIdsAsync(Guid brandId, Guid companyId, CancellationToken ct = default);
+    Task SetVehicleBrandIdsAsync(Guid brandId, Guid companyId, UpdateBrandVehicleBrandsRequest request, CancellationToken ct = default);
+
+    Task GrantMembershipAsync(Guid brandId, Guid companyId, Guid userId, CancellationToken ct = default);
+    Task RevokeMembershipAsync(Guid brandId, Guid companyId, Guid userId, CancellationToken ct = default);
 }
 
 public interface ISubscriptionService
@@ -89,4 +96,9 @@ public interface IAdminService
     Task<CompanyAdminDto> CreateCompanyAsync(CreateCompanyAdminRequest request, CancellationToken ct = default);
     Task<CompanyAdminDto> UpdateCompanyAsync(Guid id, UpdateCompanyAdminRequest request, CancellationToken ct = default);
     Task SetCompanyActiveAsync(Guid id, bool isActive, CancellationToken ct = default);
+    Task<IEnumerable<UserListDto>> GetUsersByCompanyAsync(Guid companyId, CancellationToken ct = default);
+    Task<UserListDto> UpdateUserRoleAsync(Guid userId, int role, Guid actingUserId, CancellationToken ct = default);
+
+    Task GrantMembershipAsync(Guid userId, Guid brandId, CancellationToken ct = default);
+    Task RevokeMembershipAsync(Guid userId, Guid brandId, CancellationToken ct = default);
 }

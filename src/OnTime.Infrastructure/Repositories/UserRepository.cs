@@ -42,22 +42,16 @@ public sealed class UserRepository : IUserRepository
             .Include(u => u.Brand)
             .FirstOrDefaultAsync(u => u.Id == userId && u.BrandId == brandId, ct);
 
-    public async Task<IEnumerable<Guid>> GetVehicleBrandIdsAsync(Guid userId, CancellationToken ct = default) =>
-        await _db.UserVehicleBrands
+    public async Task<bool> IsAutomotiveAsync(Guid userId, CancellationToken ct = default) =>
+        await _db.Users
             .AsNoTracking()
-            .Where(x => x.UserId == userId)
-            .Select(x => x.VehicleBrandId)
-            .ToListAsync(ct);
+            .Where(u => u.Id == userId)
+            .Select(u => u.Brand == null || u.Brand.IsAutomotive)
+            .FirstOrDefaultAsync(ct);
 
-    public async Task SetVehicleBrandIdsAsync(
-        Guid userId, IEnumerable<Guid> brandIds, CancellationToken ct = default)
-    {
-        var existing = await _db.UserVehicleBrands
-            .Where(x => x.UserId == userId)
-            .ToListAsync(ct);
-        _db.UserVehicleBrands.RemoveRange(existing);
-
-        foreach (var brandId in brandIds.Distinct())
-            _db.UserVehicleBrands.Add(new UserVehicleBrand { UserId = userId, VehicleBrandId = brandId });
-    }
+    public async Task<bool> EmailTakenByAnotherUserAsync(
+        string email, Guid excludingUserId, CancellationToken ct = default) =>
+        await _db.Users
+            .AsNoTracking()
+            .AnyAsync(u => u.Email == email && u.Id != excludingUserId, ct);
 }

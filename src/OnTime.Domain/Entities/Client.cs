@@ -10,7 +10,8 @@ public class Client : BaseEntity
     public string? Email { get; set; }
     public string? Phone { get; set; }
     public string? TaxId { get; set; }
-    public LeadSource LeadSource { get; set; } = LeadSource.WalkIn;
+    /// <summary>References LeadSourceOption.Code (unique per company) — see ROADMAP.md.</summary>
+    public int LeadSource { get; set; } = 0;
     public Guid CurrentStageId { get; set; }
     public DealTemperature Temperature { get; set; } = DealTemperature.Warm;
     public DateTimeOffset? LastInteractionAt { get; set; }

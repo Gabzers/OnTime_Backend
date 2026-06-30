@@ -27,6 +27,7 @@ public static class ApplicationServiceExtensions
         services.AddScoped<IErrorLogService, ErrorLogService>();
         services.AddScoped<IUserGoalService, UserGoalService>();
         services.AddScoped<IPermissionService, PermissionService>();
+        services.AddScoped<ILeadSourceService, LeadSourceService>();
 
         return services;
     }

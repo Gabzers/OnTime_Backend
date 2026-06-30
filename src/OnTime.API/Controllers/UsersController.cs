@@ -44,19 +44,31 @@ public class UsersController : ControllerBase
         return Ok(result);
     }
 
-    [HttpGet("me/vehicle-brands")]
-    public async Task<IActionResult> GetMyVehicleBrands(CancellationToken ct)
+    /// <summary>The Stands (companies/brands) the calling user belongs to — see switch-brand.</summary>
+    [HttpGet("me/memberships")]
+    public async Task<IActionResult> GetMyMemberships(CancellationToken ct)
     {
-        var result = await _users.GetMyVehicleBrandsAsync(User.GetUserId(), ct);
+        var result = await _auth.GetMyMembershipsAsync(User.GetUserId(), ct);
         return Ok(result);
     }
 
-    [HttpPut("me/vehicle-brands")]
-    public async Task<IActionResult> SetMyVehicleBrands(
-        [FromBody] UpdateUserVehicleBrandsRequest request,
+    /// <summary>Switches the calling user's active Stand (must already have membership) and
+    /// returns a freshly minted JWT scoped to it — same shape as login.</summary>
+    [HttpPost("me/switch-brand")]
+    public async Task<IActionResult> SwitchBrand(
+        [FromBody] SwitchBrandRequest request,
         CancellationToken ct)
     {
-        await _users.SetMyVehicleBrandsAsync(User.GetUserId(), request, ct);
+        var result = await _auth.SwitchBrandAsync(User.GetUserId(), request.BrandId, ct);
+        return Ok(result);
+    }
+
+    [HttpPut("me/password")]
+    public async Task<IActionResult> ChangePassword(
+        [FromBody] ChangePasswordRequest request,
+        CancellationToken ct)
+    {
+        await _users.ChangePasswordAsync(User.GetUserId(), request, ct);
         return NoContent();
     }
 

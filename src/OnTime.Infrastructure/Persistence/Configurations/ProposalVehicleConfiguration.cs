@@ -14,6 +14,7 @@ public class ProposalVehicleConfiguration : IEntityTypeConfiguration<ProposalVeh
         builder.Property(x => x.Notes).HasMaxLength(1000);
         builder.Property(x => x.Price).HasPrecision(18, 2);
         builder.Property(x => x.Discount).HasPrecision(18, 2);
+        builder.Property(x => x.Plate).HasMaxLength(20);
 
         builder.HasOne(x => x.Proposal)
             .WithMany(x => x.Vehicles)
@@ -23,13 +24,13 @@ public class ProposalVehicleConfiguration : IEntityTypeConfiguration<ProposalVeh
         builder.HasOne(x => x.Model)
             .WithMany(x => x.ProposalVehicles)
             .HasForeignKey(x => x.ModelId)
-            .OnDelete(DeleteBehavior.SetNull)
+            .OnDelete(DeleteBehavior.Restrict)
             .IsRequired(false);
 
         builder.HasOne(x => x.Version)
             .WithMany()
             .HasForeignKey(x => x.VersionId)
-            .OnDelete(DeleteBehavior.SetNull)
+            .OnDelete(DeleteBehavior.Restrict)
             .IsRequired(false);
     }
 }

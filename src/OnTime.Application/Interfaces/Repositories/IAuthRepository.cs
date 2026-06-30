@@ -13,8 +13,11 @@ public interface IAuthRepository
     Task<Company?> FindCompanyAsync(Guid id, CancellationToken ct = default);
     Task<Brand?> FindBrandAsync(Guid id, CancellationToken ct = default);
     Task<User?> FindByEmailWithNavigationsAsync(string email, CancellationToken ct = default);
+    Task<User?> FindByIdWithNavigationsAsync(Guid id, CancellationToken ct = default);
     Task<IEnumerable<CompanyLookupDto>> GetCompanyListAsync(CancellationToken ct = default);
     Task<IEnumerable<BrandLookupDto>> GetBrandsByCompanyAsync(Guid companyId, CancellationToken ct = default);
+    Task<bool> HasMembershipAsync(Guid userId, Guid brandId, CancellationToken ct = default);
+    Task<IEnumerable<MembershipDto>> GetMembershipsAsync(Guid userId, CancellationToken ct = default);
 
     void AddCompany(Company company);
     void AddBrand(Brand brand);
@@ -23,4 +26,6 @@ public interface IAuthRepository
     void AddStageTemplate(StageNotificationTemplate template);
     void AddNotificationPreference(NotificationPreference pref);
     void AddPublicProfile(UserPublicProfile profile);
+    void AddMembership(UserBrandMembership membership);
+    void AddLeadSource(LeadSourceOption option);
 }

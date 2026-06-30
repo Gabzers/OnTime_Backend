@@ -30,6 +30,14 @@ public class VehicleFlowTests : IAsyncLifetime
         var brandResp = await _factory.Client.PostAsJsonAsync(
             "/api/vehicles/brands", new CreateVehicleBrandRequest($"TestBrand-{Guid.NewGuid():N}", null), auth.Token);
         var brand = await brandResp.Content.ReadFromJsonAsync<VehicleBrandDto>();
+
+        // Vehicle brands are now configured per-Stand by Manager/Admin (see USER-BRANDS.md) —
+        // allow it on the manager's own Stand before any model can be created under it.
+        await _factory.Client.PutAsJsonAsync(
+            $"/api/brands/{auth.BrandId}/vehicle-brands",
+            new OnTime.Application.DTOs.Brands.UpdateBrandVehicleBrandsRequest([brand!.Id]),
+            auth.Token);
+
         return (auth.Token, brand!.Id);
     }
 
@@ -111,6 +119,41 @@ public class VehicleFlowTests : IAsyncLifetime
         var listResp = await _factory.Client.GetAsync($"/api/vehicles/models?brandId={brandId}", token);
         var list = await listResp.Content.ReadFromJsonAsync<PagedResult>();
         list!.Items.Single().IsConfigured.ShouldBeTrue();
+    }
+
+    // ── Test 5 ───────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task GetModels_FilterByConfigured_ReturnsOnlyMatchingStatus()
+    {
+        var (token, brandId) = await ArrangeManagerWithBrandAsync();
+
+        var configuredResp = await _factory.Client.PostAsJsonAsync(
+            "/api/vehicles/models",
+            new CreateVehicleModelRequest(brandId, "Configured", null, null, null, null, null),
+            token);
+        var configuredModel = await configuredResp.Content.ReadFromJsonAsync<VehicleModelDto>();
+        await _factory.Client.PostAsJsonAsync(
+            $"/api/vehicles/models/{configuredModel!.Id}/versions",
+            new CreateVehicleVersionRequest("Base", ["Branco"], []),
+            token);
+
+        await _factory.Client.PostAsJsonAsync(
+            "/api/vehicles/models",
+            new CreateVehicleModelRequest(brandId, "Unconfigured", null, null, null, null, null),
+            token);
+
+        var configuredOnly = await (await _factory.Client.GetAsync(
+            $"/api/vehicles/models?brandId={brandId}&configured=true", token)).Content.ReadFromJsonAsync<PagedResult>();
+        configuredOnly!.Items.Select(m => m.Name).ShouldBe(["Configured"]);
+
+        var unconfiguredOnly = await (await _factory.Client.GetAsync(
+            $"/api/vehicles/models?brandId={brandId}&configured=false", token)).Content.ReadFromJsonAsync<PagedResult>();
+        unconfiguredOnly!.Items.Select(m => m.Name).ShouldBe(["Unconfigured"]);
+
+        var both = await (await _factory.Client.GetAsync(
+            $"/api/vehicles/models?brandId={brandId}", token)).Content.ReadFromJsonAsync<PagedResult>();
+        both!.Items.Count().ShouldBe(2);
     }
 
 }

@@ -9,11 +9,13 @@ public class UserService : IUserService
 {
     private readonly IUserRepository _repo;
     private readonly IUnitOfWork     _uow;
+    private readonly IPasswordHasher _hasher;
 
-    public UserService(IUserRepository repo, IUnitOfWork uow)
+    public UserService(IUserRepository repo, IUnitOfWork uow, IPasswordHasher hasher)
     {
-        _repo = repo;
-        _uow  = uow;
+        _repo   = repo;
+        _uow    = uow;
+        _hasher = hasher;
     }
 
     public async Task<UserDto> GetMeAsync(Guid userId, CancellationToken ct = default)
@@ -33,6 +35,14 @@ public class UserService : IUserService
 
         if (req.FullName is not null) user.FullName = req.FullName;
         if (req.Phone    is not null) user.Phone    = req.Phone;
+
+        if (req.Email is not null && !req.Email.Equals(user.Email, StringComparison.OrdinalIgnoreCase))
+        {
+            var email = req.Email.ToLower();
+            if (await _repo.EmailTakenByAnotherUserAsync(email, userId, ct))
+                throw new ApiException(ApiErrorCatalog.USER_EMAIL_TAKEN);
+            user.Email = email;
+        }
 
         await _uow.SaveChangesAsync(ct);
         return ToDto(user);
@@ -60,20 +70,23 @@ public class UserService : IUserService
         return ToDto(user);
     }
 
-    public async Task<UserVehicleBrandsDto> GetMyVehicleBrandsAsync(Guid userId, CancellationToken ct = default) =>
-        new(await _repo.GetVehicleBrandIdsAsync(userId, ct));
-
-    public async Task SetMyVehicleBrandsAsync(
-        Guid userId, UpdateUserVehicleBrandsRequest req, CancellationToken ct = default)
+    public async Task ChangePasswordAsync(
+        Guid userId, ChangePasswordRequest req, CancellationToken ct = default)
     {
-        await _repo.SetVehicleBrandIdsAsync(userId, req.BrandIds, ct);
+        var user = await _repo.FindAsync(userId, ct)
+            ?? throw new ApiException(ApiErrorCatalog.USER_NOT_FOUND);
+
+        if (!_hasher.Verify(user.PasswordHash, req.CurrentPassword))
+            throw new ApiException(ApiErrorCatalog.USER_CURRENT_PASSWORD_INVALID);
+
+        user.PasswordHash = _hasher.Hash(req.NewPassword);
         await _uow.SaveChangesAsync(ct);
     }
 
     private static UserDto ToDto(Domain.Entities.User u) =>
         new(u.Id, u.FullName, u.Email, u.Phone,
-            (int)u.Role, (int)u.AccountStatus, 0,
+            (int)u.Role, (int)u.AccountStatus, (int)u.SubscriptionStatus,
             u.CompanyId, u.Company?.Name ?? string.Empty,
             u.BrandId,   u.Brand?.Name   ?? string.Empty,
-            null, u.CreatedAt);
+            u.LastLoginAt, u.CreatedAt);
 }

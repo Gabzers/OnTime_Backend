@@ -5,7 +5,7 @@ namespace OnTime.Domain.Entities;
 public class ProposalVehicle : BaseEntity
 {
     public Guid ProposalId { get; set; }
-    public Guid? ModelId { get; set; }         // null if free-text
+    public Guid? ModelId { get; set; }         // null if free-text — FK to UserVehicleModel (owner's own catalog)
     public string? FreeTextModel { get; set; }
     public bool IsPreferred { get; set; } = false;
     /// <summary>Price for this specific vehicle in this proposal.</summary>
@@ -16,9 +16,11 @@ public class ProposalVehicle : BaseEntity
     public Guid? VersionId { get; set; }
     public string? ExternalColor { get; set; }
     public string? InternalColor { get; set; }
+    /// <summary>Optional — a used/pre-registered vehicle may already have a plate; a genuinely new one won't.</summary>
+    public string? Plate { get; set; }
 
     // Navigation
     public Proposal Proposal { get; set; } = null!;
-    public VehicleModel? Model { get; set; }
-    public VehicleModelVersion? Version { get; set; }
+    public UserVehicleModel? Model { get; set; }
+    public UserVehicleVersion? Version { get; set; }
 }

@@ -82,6 +82,9 @@ public record UpdateVehicleVersionRequest(
 public record VehicleSearchParams(
     string? Search = null,
     Guid? BrandId = null,
+    /// <summary>Filter by configured status: true = only configured (≥1 version with a colour),
+    /// false = only not-configured, null = both. Frontend defaults this to true.</summary>
+    bool? Configured = null,
     int Page = 1,
     int PageSize = 20
 );

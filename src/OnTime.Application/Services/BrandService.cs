@@ -10,12 +10,14 @@ public class BrandService : IBrandService
 {
     private readonly IBrandRepository _repo;
     private readonly IAuthRepository  _authRepo;
+    private readonly IUserRepository  _userRepo;
     private readonly IUnitOfWork      _uow;
 
-    public BrandService(IBrandRepository repo, IAuthRepository authRepo, IUnitOfWork uow)
+    public BrandService(IBrandRepository repo, IAuthRepository authRepo, IUserRepository userRepo, IUnitOfWork uow)
     {
         _repo     = repo;
         _authRepo = authRepo;
+        _userRepo = userRepo;
         _uow      = uow;
     }
 
@@ -49,7 +51,8 @@ public class BrandService : IBrandService
             Address      = req.Address,
             LogoUrl      = req.LogoUrl,
             PrimaryColor = req.PrimaryColor ?? "#1677FF",
-            IsActive     = true
+            IsActive     = true,
+            IsAutomotive = req.IsAutomotive
         };
 
         _repo.Add(brand);
@@ -73,6 +76,7 @@ public class BrandService : IBrandService
         brand.Address      = req.Address;
         brand.LogoUrl      = req.LogoUrl;
         brand.PrimaryColor = req.PrimaryColor ?? brand.PrimaryColor;
+        brand.IsAutomotive = req.IsAutomotive;
 
         await _uow.SaveChangesAsync(ct);
         return ToDto(brand);
@@ -91,8 +95,49 @@ public class BrandService : IBrandService
         await _uow.SaveChangesAsync(ct);
     }
 
+    private async Task<Brand> RequireOwnedBrandAsync(Guid id, Guid companyId, CancellationToken ct)
+    {
+        var brand = await _repo.FindAsync(id, ct)
+            ?? throw new ApiException(ApiErrorCatalog.BRAND_NOT_FOUND);
+        if (brand.CompanyId != companyId)
+            throw new ApiException(ApiErrorCatalog.BRAND_WRONG_COMPANY);
+        return brand;
+    }
+
+    public async Task<BrandVehicleBrandsDto> GetVehicleBrandIdsAsync(
+        Guid brandId, Guid companyId, CancellationToken ct = default)
+    {
+        await RequireOwnedBrandAsync(brandId, companyId, ct);
+        return new(await _repo.GetVehicleBrandIdsAsync(brandId, ct));
+    }
+
+    public async Task SetVehicleBrandIdsAsync(
+        Guid brandId, Guid companyId, UpdateBrandVehicleBrandsRequest req, CancellationToken ct = default)
+    {
+        await RequireOwnedBrandAsync(brandId, companyId, ct);
+        await _repo.SetVehicleBrandIdsAsync(brandId, req.VehicleBrandIds, ct);
+        await _uow.SaveChangesAsync(ct);
+    }
+
+    public async Task GrantMembershipAsync(
+        Guid brandId, Guid companyId, Guid userId, CancellationToken ct = default)
+    {
+        await RequireOwnedBrandAsync(brandId, companyId, ct);
+        _ = await _userRepo.FindAsync(userId, ct) ?? throw new ApiException(ApiErrorCatalog.USER_NOT_FOUND);
+        await _repo.GrantMembershipAsync(brandId, userId, ct);
+        await _uow.SaveChangesAsync(ct);
+    }
+
+    public async Task RevokeMembershipAsync(
+        Guid brandId, Guid companyId, Guid userId, CancellationToken ct = default)
+    {
+        await RequireOwnedBrandAsync(brandId, companyId, ct);
+        await _repo.RevokeMembershipAsync(brandId, userId, ct);
+        await _uow.SaveChangesAsync(ct);
+    }
+
     private static BrandDto ToDto(Brand b) =>
         new(b.Id, b.CompanyId, b.Name,
             b.Description, b.Phone, b.Email, b.Address, b.LogoUrl,
-            b.PrimaryColor, b.IsActive, b.CreatedAt);
+            b.PrimaryColor, b.IsActive, b.CreatedAt, b.IsAutomotive);
 }

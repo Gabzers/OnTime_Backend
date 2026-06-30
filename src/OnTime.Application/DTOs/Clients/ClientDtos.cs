@@ -96,7 +96,9 @@ public record ProposalVehicleRequest(
     decimal? Discount = null,
     Guid? VersionId = null,
     string? ExternalColor = null,
-    string? InternalColor = null
+    string? InternalColor = null,
+    /// <summary>Optional — a used/pre-registered vehicle may already have a plate; a genuinely new one won't.</summary>
+    string? Plate = null
 );
 
 public record UpdateClientStageRequest(

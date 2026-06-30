@@ -60,6 +60,56 @@ public class AdminFlowTests : IAsyncLifetime
         companies.ShouldNotBeNull();
     }
 
+    [Fact]
+    public async Task RegularManager_CannotChangeAnyonesRole_ViaAdminPanel()
+    {
+        var attacker = await TestHelpers.RegisterManagerAsync(_factory.Client);
+        var victim = await TestHelpers.RegisterManagerAsync(_factory.Client);
+
+        var resp = await _factory.Client.PatchAsJsonAsync(
+            $"/api/admin/users/{victim.UserId}/role",
+            new { Role = 2 },
+            attacker.Token);
+
+        resp.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task PlatformAdmin_CanChangeAnotherUsersRole()
+    {
+        var admin = await TestHelpers.RegisterManagerAsync(_factory.Client);
+        await PromoteToAdminAsync(admin.UserId);
+        var adminToken = await TestHelpers.LoginAsync(_factory.Client, admin.Email);
+
+        var target = await TestHelpers.RegisterSalespersonAsync(_factory.Client, admin.CompanyId, admin.BrandId);
+
+        var resp = await _factory.Client.PatchAsJsonAsync(
+            $"/api/admin/users/{target.UserId}/role",
+            new { Role = 1 },
+            adminToken);
+
+        resp.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var targetUser = await _factory.Db.Users.FindAsync(target.UserId);
+        targetUser!.Role.ShouldBe(UserRole.Manager);
+    }
+
+    [Fact]
+    public async Task PlatformAdmin_CannotChangeOwnRole()
+    {
+        var admin = await TestHelpers.RegisterManagerAsync(_factory.Client);
+        await PromoteToAdminAsync(admin.UserId);
+        var adminToken = await TestHelpers.LoginAsync(_factory.Client, admin.Email);
+
+        var resp = await _factory.Client.PatchAsJsonAsync(
+            $"/api/admin/users/{admin.UserId}/role",
+            new { Role = 1 },
+            adminToken);
+
+        resp.StatusCode.ShouldBe(HttpStatusCode.UnprocessableEntity);
+        var body = await resp.Content.ReadAsStringAsync();
+        body.ShouldContain("CANNOT_CHANGE_OWN_ROLE");
+    }
+
     private async Task PromoteToAdminAsync(Guid userId)
     {
         var user = await _factory.Db.Users.FindAsync(userId);
