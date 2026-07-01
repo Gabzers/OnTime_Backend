@@ -120,6 +120,10 @@ public sealed class VehicleRepository : IVehicleRepository
 
         if (brandId is null) return [];
 
+        // Deliberately restrictive by default: zero BrandVehicleBrand rows means zero allowed
+        // brands, not "all brands" — a brand-new Stand shouldn't silently start selling every
+        // globally-seeded VehicleBrand until its Manager explicitly opts in. See
+        // BrandVehicleBrandsFlowTests.CreateModel_ForBrandNotAllowedByStand_IsRejected.
         return await _db.BrandVehicleBrands
             .Where(bvb => bvb.BrandId == brandId.Value)
             .Select(bvb => bvb.VehicleBrandId)

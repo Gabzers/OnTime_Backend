@@ -93,9 +93,14 @@ public class UserGoalService : IUserGoalService
     {
         var goal = await FindOwnedAsync(userId, goalId, ct);
 
-        if (goal.MetricType == GoalMetricType.ConversionRate && request.TargetValue > 100)
+        // Validate against the NEW metric type being requested, not the old one — a goal being
+        // switched to ConversionRate must be checked against the 100% cap even if it wasn't one
+        // before, and one being switched away from it must not still be capped.
+        if ((GoalMetricType)request.MetricType == GoalMetricType.ConversionRate && request.TargetValue > 100)
             throw new ApiException(ApiErrorCatalog.GOAL_PERCENT_OUT_OF_RANGE);
 
+        goal.MetricType      = (GoalMetricType)request.MetricType;
+        goal.Period          = (GoalPeriod)request.Period;
         goal.TargetValue     = request.TargetValue;
         goal.ShowOnDashboard = request.ShowOnDashboard;
         await _uow.SaveChangesAsync(ct);

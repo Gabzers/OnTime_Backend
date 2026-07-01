@@ -26,6 +26,8 @@ public record CreateUserGoalRequest(
 );
 
 public record UpdateUserGoalRequest(
+    [Required] int MetricType,
+    [Required] int Period,
     [Required] decimal TargetValue,
     bool ShowOnDashboard = false
 );

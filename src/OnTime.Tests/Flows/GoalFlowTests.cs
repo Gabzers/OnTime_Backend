@@ -113,7 +113,8 @@ public class GoalFlowTests : IAsyncLifetime
         var created = await createResp.Content.ReadFromJsonAsync<UserGoalDto>();
         created.ShouldNotBeNull();
 
-        var updateReq = new UpdateUserGoalRequest(TargetValue: 10m);
+        var updateReq = new UpdateUserGoalRequest(
+            MetricType: (int)GoalMetricType.NewClients, Period: (int)GoalPeriod.Weekly, TargetValue: 10m);
         var updateResp = await _factory.Client.PutAsJsonAsync($"/api/goals/{created!.Id}", updateReq, auth.Token);
         updateResp.StatusCode.ShouldBe(HttpStatusCode.OK);
         var updated = await updateResp.Content.ReadFromJsonAsync<UserGoalDto>();
@@ -221,7 +222,7 @@ public class GoalFlowTests : IAsyncLifetime
 
         var updateResp = await _factory.Client.PutAsJsonAsync(
             $"/api/goals/{goal!.Id}",
-            new UpdateUserGoalRequest(TargetValue: 999m),
+            new UpdateUserGoalRequest(MetricType: (int)GoalMetricType.Sales, Period: (int)GoalPeriod.Monthly, TargetValue: 999m),
             stranger.Token);
         updateResp.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
 
@@ -263,9 +264,36 @@ public class GoalFlowTests : IAsyncLifetime
 
         var updateResp = await _factory.Client.PutAsJsonAsync(
             $"/api/goals/{created!.Id}",
-            new UpdateUserGoalRequest(TargetValue: 101m),
+            new UpdateUserGoalRequest(MetricType: (int)GoalMetricType.ConversionRate, Period: (int)GoalPeriod.Monthly, TargetValue: 101m),
             auth.Token);
         updateResp.StatusCode.ShouldBe(HttpStatusCode.UnprocessableEntity);
+    }
+
+    [Fact]
+    public async Task UpdateGoal_CanChangeMetricTypeAndPeriod()
+    {
+        var auth = await TestHelpers.RegisterManagerAsync(_factory.Client);
+        await TestHelpers.ActivateSubscriptionDirectAsync(_factory.Db, auth.UserId);
+
+        var createResp = await _factory.Client.PostAsJsonAsync("/api/goals", new CreateUserGoalRequest(
+            MetricType: (int)GoalMetricType.NewClients, Period: (int)GoalPeriod.Weekly,
+            TargetValue: 5m), auth.Token);
+        var created = await createResp.Content.ReadFromJsonAsync<UserGoalDto>();
+
+        // Change everything at once — metric, period, target, and pin flag.
+        var updateResp = await _factory.Client.PutAsJsonAsync(
+            $"/api/goals/{created!.Id}",
+            new UpdateUserGoalRequest(
+                MetricType: (int)GoalMetricType.Sales, Period: (int)GoalPeriod.Annual,
+                TargetValue: 40m, ShowOnDashboard: true),
+            auth.Token);
+        updateResp.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var updated = await updateResp.Content.ReadFromJsonAsync<UserGoalDto>();
+        updated!.MetricType.ShouldBe((int)GoalMetricType.Sales);
+        updated.Period.ShouldBe((int)GoalPeriod.Annual);
+        updated.TargetValue.ShouldBe(40m);
+        updated.ShowOnDashboard.ShouldBeTrue();
     }
 
     // ── Reorder ───────────────────────────────────────────────────────────────
