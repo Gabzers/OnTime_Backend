@@ -25,7 +25,7 @@ public sealed class ProposalRepository : IProposalRepository
         var query = _db.Proposals
             .AsNoTracking()
             .Include(p => p.Client)
-            .Where(p => p.UserId == userId);
+            .Where(p => p.UserId == userId && p.IsActive);
 
         if (filter.Status.HasValue)
             query = query.Where(p => (int)p.Status == filter.Status.Value);
@@ -82,20 +82,23 @@ public sealed class ProposalRepository : IProposalRepository
     }
 
     // ── Entity lookups ────────────────────────────────────────────────────
+    // All filter IsActive — a soft-deleted proposal must behave as if it doesn't exist anywhere
+    // (ownership checks throw PROPOSAL_NOT_FOUND same as a genuinely missing id), mirroring
+    // ClientRepository's pattern.
     public Task<Proposal?> FindAsync(Guid id, CancellationToken ct = default) =>
-        _db.Proposals.FindAsync(new object[] { id }, ct).AsTask();
+        _db.Proposals.FirstOrDefaultAsync(p => p.Id == id && p.IsActive, ct);
 
     public Task<Proposal?> FindWithVehiclesAsync(Guid id, CancellationToken ct = default) =>
         _db.Proposals
             .Include(p => p.Vehicles)
-            .FirstOrDefaultAsync(p => p.Id == id, ct);
+            .FirstOrDefaultAsync(p => p.Id == id && p.IsActive, ct);
 
     public Task<Proposal?> FindWithClientAndStageAsync(Guid id, CancellationToken ct = default) =>
         _db.Proposals
             .Include(p => p.Vehicles)
             .Include(p => p.Client)
                 .ThenInclude(c => c.CurrentStage)
-            .FirstOrDefaultAsync(p => p.Id == id, ct);
+            .FirstOrDefaultAsync(p => p.Id == id && p.IsActive, ct);
 
     // ── Writes ────────────────────────────────────────────────────────────
     public void Add(Proposal proposal) => _db.Proposals.Add(proposal);
@@ -119,7 +122,7 @@ public sealed class ProposalRepository : IProposalRepository
                     .ThenInclude(m => m!.VehicleBrand)
             .Include(p => p.Vehicles)
                 .ThenInclude(v => v.Version)
-            .FirstOrDefaultAsync(p => p.Id == id, ct);
+            .FirstOrDefaultAsync(p => p.Id == id && p.IsActive, ct);
 
     private static ProposalDto ToDto(Proposal p) => new(
         p.Id,

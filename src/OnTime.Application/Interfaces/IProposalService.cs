@@ -12,4 +12,5 @@ public interface IProposalService
     Task<ProposalDto> UpdateAsync(Guid id, Guid userId, CreateProposalRequest request, CancellationToken ct = default);
     Task<ProposalDto> MarkLostAsync(Guid id, Guid userId, MarkProposalLostRequest request, CancellationToken ct = default);
     Task<SaleDto> ConvertToSaleAsync(Guid id, Guid userId, ConvertToSaleRequest request, CancellationToken ct = default);
+    Task DeleteAsync(Guid id, Guid userId, CancellationToken ct = default);
 }

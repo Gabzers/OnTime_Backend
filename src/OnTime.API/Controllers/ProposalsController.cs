@@ -78,4 +78,12 @@ public class ProposalsController : ControllerBase
         var result = await _proposals.ConvertToSaleAsync(id, User.GetUserId(), request, ct);
         return Ok(result);
     }
+
+    /// <summary>Soft delete — blocked once Won (mark Lost instead). See ProposalService.DeleteAsync.</summary>
+    [HttpDelete("api/proposals/{id:guid}")]
+    public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
+    {
+        await _proposals.DeleteAsync(id, User.GetUserId(), ct);
+        return NoContent();
+    }
 }

@@ -274,6 +274,26 @@ public class ProposalService : IProposalService
             ?? throw new ApiException(ApiErrorCatalog.SALE_NOT_FOUND);
     }
 
+    // ── Delete ────────────────────────────────────────────────────────────
+    // Soft delete (IsActive = false), same pattern as ClientService.DeleteAsync — never a hard
+    // SQL DELETE, so history/sales that reference this proposal stay intact. Blocked once Won:
+    // a Won proposal already has a Sale pointing at it, deleting it would orphan that Sale's
+    // context for no reason — mark it Lost instead if it needs to go away.
+    public async Task DeleteAsync(Guid id, Guid userId, CancellationToken ct = default)
+    {
+        var p = await _proposalRepo.FindAsync(id, ct)
+            ?? throw new ApiException(ApiErrorCatalog.PROPOSAL_NOT_FOUND);
+
+        if (p.UserId != userId)
+            throw new ApiException(ApiErrorCatalog.CLIENT_WRONG_USER);
+
+        if (p.Status == ProposalStatus.Won)
+            throw new ApiException(ApiErrorCatalog.PROPOSAL_ALREADY_CLOSED);
+
+        p.IsActive = false;
+        await _uow.SaveChangesAsync(ct);
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────
     private static Proposal BuildProposal(Guid userId, Guid clientId, CreateProposalRequest req)
     {

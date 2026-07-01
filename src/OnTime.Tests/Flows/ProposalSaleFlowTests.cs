@@ -510,4 +510,73 @@ public class ProposalSaleFlowTests : IAsyncLifetime
             .ToListAsync();
         history.Count.ShouldBeGreaterThanOrEqualTo(2); // initial + lost stage change
     }
+
+    // ── Delete ───────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task DeleteProposal_SoftDeletes_AndDisappearsFromListAndDetail()
+    {
+        var auth = await TestHelpers.RegisterManagerAsync(_factory.Client);
+        await TestHelpers.ActivateSubscriptionDirectAsync(_factory.Db, auth.UserId);
+        var (_, proposalId) = await TestHelpers.CreateClientWithProposalAsync(_factory.Client, auth.Token, db: _factory.Db);
+
+        var response = await _factory.Client.DeleteAsync($"/api/proposals/{proposalId}", auth.Token);
+        response.StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        // Row still exists, just IsActive = false — never a hard delete
+        _factory.Db.ChangeTracker.Clear();
+        var proposal = await _factory.Db.Proposals.FindAsync(proposalId);
+        proposal.ShouldNotBeNull();
+        proposal!.IsActive.ShouldBeFalse();
+
+        // Gone from the paged list
+        var list = await _factory.Client.GetFromJsonAsync<
+            OnTime.Application.Common.PagedResult<ProposalListDto>>("/api/proposals", auth.Token);
+        list!.Items.ShouldNotContain(p => p.Id == proposalId);
+
+        // Gone from single-detail lookup too
+        var getResponse = await _factory.Client.GetAsync($"/api/proposals/{proposalId}", auth.Token);
+        getResponse.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task DeleteProposal_BlockedOnceWon()
+    {
+        var auth = await TestHelpers.RegisterManagerAsync(_factory.Client);
+        await TestHelpers.ActivateSubscriptionDirectAsync(_factory.Db, auth.UserId);
+        var (_, proposalId) = await TestHelpers.CreateClientWithProposalAsync(_factory.Client, auth.Token, db: _factory.Db);
+
+        var convertReq = new ConvertToSaleRequest(
+            SoldAt: DateTimeOffset.UtcNow,
+            FinalValue: 30000m,
+            PaymentType: (int)PaymentType.Cash,
+            ModelId: null,
+            FreeTextModel: "Test Model",
+            Plate: null,
+            Chassis: null,
+            Obs: null
+        );
+        await _factory.Client.PostAsJsonAsync($"/api/proposals/{proposalId}/convert", convertReq, auth.Token);
+
+        var response = await _factory.Client.DeleteAsync($"/api/proposals/{proposalId}", auth.Token);
+        response.StatusCode.ShouldBe(HttpStatusCode.UnprocessableEntity);
+
+        _factory.Db.ChangeTracker.Clear();
+        var proposal = await _factory.Db.Proposals.FindAsync(proposalId);
+        proposal!.IsActive.ShouldBeTrue(); // untouched
+    }
+
+    [Fact]
+    public async Task DeleteProposal_WrongOwner_Forbidden()
+    {
+        var auth1 = await TestHelpers.RegisterManagerAsync(_factory.Client);
+        await TestHelpers.ActivateSubscriptionDirectAsync(_factory.Db, auth1.UserId);
+        var (_, proposalId) = await TestHelpers.CreateClientWithProposalAsync(_factory.Client, auth1.Token, db: _factory.Db);
+
+        var auth2 = await TestHelpers.RegisterManagerAsync(_factory.Client);
+        await TestHelpers.ActivateSubscriptionDirectAsync(_factory.Db, auth2.UserId);
+
+        var response = await _factory.Client.DeleteAsync($"/api/proposals/{proposalId}", auth2.Token);
+        response.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+    }
 }

@@ -540,6 +540,9 @@ public class I18nController : ControllerBase
         // ── Messages ────────────────────────────────────────────────────────
         ["MSG.DELETE_CONFIRM"]             = "Tem a certeza que deseja eliminar?",
         ["MSG.DELETE_STAGE_BLOCKED"]       = "Não é possível eliminar uma etapa com clientes ativos.",
+        ["MSG.DELETE_CLIENT_CONFIRM"]      = "Eliminar este cliente? As propostas e vendas associadas ficam preservadas, mas o cliente deixa de aparecer em qualquer lista.",
+        ["MSG.DELETE_PROPOSAL_CONFIRM"]    = "Eliminar esta proposta?",
+        ["MSG.DELETE_PROPOSAL_BLOCKED_WON"] = "Não é possível eliminar uma proposta já convertida em venda — marca-a como Perdida se já não for válida.",
         ["MSG.EMPTY_STATE.CLIENTS"]        = "Nenhum cliente encontrado.",
         ["MSG.EMPTY_STATE.PROPOSALS"]      = "Sem propostas.",
         ["MSG.EMPTY_STATE.SALES"]          = "Sem vendas registadas.",
@@ -1070,6 +1073,9 @@ public class I18nController : ControllerBase
         ["KPI.COMMISSION_MONTH"]           = "Commission (month)",
 
         ["MSG.DELETE_CONFIRM"]             = "Are you sure you want to delete this?",
+        ["MSG.DELETE_CLIENT_CONFIRM"]      = "Delete this client? Their proposals and sales are kept, but the client stops showing up anywhere.",
+        ["MSG.DELETE_PROPOSAL_CONFIRM"]    = "Delete this proposal?",
+        ["MSG.DELETE_PROPOSAL_BLOCKED_WON"] = "A proposal already converted into a sale can't be deleted — mark it Lost instead if it's no longer valid.",
         ["MSG.SAVED"]                      = "Saved successfully.",
         ["MSG.SUCCESS"]                    = "Operation completed successfully.",
         ["MSG.EMPTY_STATE.DEFAULT"]        = "No results.",
